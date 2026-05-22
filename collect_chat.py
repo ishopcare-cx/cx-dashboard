@@ -56,15 +56,26 @@ def collect(ct):
             by_id[c["id"]] = c
             n += 1
         log.info("%s: %d건", state, n)
-    # closed — closedAt(없으면 createdAt)이 cutoff 이상인 것까지만
-    n = 0
-    for c in ct.iter_user_chats("closed"):
-        ts = c.get("closedAt") or c.get("createdAt") or 0
-        if ts < cutoff_ms:
+    # closed — closedAt이 cutoff 이상인 채팅. 페이지 단위로 끊는다.
+    # 개별 채팅에서 break하면 정렬 흔들림(오래된 채팅 1건이 중간에 끼는
+    # 경우)에 일찍 끊긴다 → 페이지 전체의 최신값이 cutoff보다 과거일 때만
+    # 중단한다.
+    n = pages = 0
+    for page in ct.iter_user_chat_pages("closed"):
+        if not page:
             break
-        by_id[c["id"]] = c
-        n += 1
-    log.info("closed(최근 %d일): %d건", config.COLLECT_DAYS, n)
+        pages += 1
+        page_max = 0
+        for c in page:
+            ts = c.get("closedAt") or c.get("createdAt") or 0
+            page_max = max(page_max, ts)
+            if ts >= cutoff_ms:
+                by_id[c["id"]] = c
+                n += 1
+        if page_max < cutoff_ms:
+            break
+    log.info("closed(최근 %d일): %d건 / %d페이지",
+             config.COLLECT_DAYS, n, pages)
     return list(by_id.values())
 
 

@@ -51,11 +51,15 @@ class ChannelTalk:
                 break
         return out
 
-    def iter_user_chats(self, state):
-        """주어진 state의 user-chat을 최신순으로 모두 yield.
+    def iter_user_chat_pages(self, state):
+        """주어진 state의 user-chat을 페이지(리스트) 단위로 최신순 yield.
 
         API가 limit보다 적게 쪼개 주므로 next 커서로 끝까지 따라간다.
         호출측이 중간에 break하면 더 이상 페이지를 요청하지 않는다.
+
+        주의: 페이지 내부 정렬은 closedAt 기준이지만 완벽히 단조롭지 않다
+        (수 시간 범위로 흔들림). 종료 판정은 개별 채팅이 아니라 페이지
+        단위로 해야 한다 — collect_chat.collect() 참고.
         """
         since = None
         while True:
@@ -64,8 +68,13 @@ class ChannelTalk:
                 params["since"] = since
             d = self._get("/user-chats", params)
             chats = d.get("userChats", [])
-            for c in chats:
-                yield c
+            yield chats
             since = d.get("next")
             if not since or not chats:
                 break
+
+    def iter_user_chats(self, state):
+        """주어진 state의 user-chat을 모두 yield (페이지 평탄화)."""
+        for page in self.iter_user_chat_pages(state):
+            for c in page:
+                yield c
