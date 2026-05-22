@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+*.log
+# 비밀값 — 절대 커밋 금지
+client_secret.json
+oauth_local.json
+secrets_local.json

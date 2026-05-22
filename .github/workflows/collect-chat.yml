@@ -1,0 +1,40 @@
+name: collect-chat
+
+# 채널톡 채팅 → 'CX 대시보드 데이터' 시트 chat_raw 적재. 매일 1회.
+on:
+  schedule:
+    - cron: '30 14 * * *'        # UTC 14:30 = KST 23:30
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'closed 재수집 창(일수)'
+        default: '10'
+
+concurrency:
+  group: collect-chat
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect chat data
+        env:
+          CHANNELTALK_ACCESS_KEY: ${{ secrets.CHANNELTALK_ACCESS_KEY }}
+          CHANNELTALK_ACCESS_SECRET: ${{ secrets.CHANNELTALK_ACCESS_SECRET }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+          CX_COLLECT_DAYS: ${{ inputs.days || '10' }}
+        run: python collect_chat.py
