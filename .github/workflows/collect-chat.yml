@@ -38,3 +38,9 @@ jobs:
           GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
           CX_COLLECT_DAYS: ${{ inputs.days || '30' }}
         run: python collect_chat.py
+
+      - name: Trigger publish-dashboard
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run publish-dashboard.yml --repo ${{ github.repository }}
