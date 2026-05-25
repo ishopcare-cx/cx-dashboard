@@ -674,7 +674,10 @@ function aggComplaint(rows, p) {
 function sumObj(o) { return Object.values(o).reduce((s, v) => s + v, 0); }
 function topKey(o) {
   const k = Object.keys(o).sort((x, y) => o[y] - o[x])[0];
-  return k ? `${k} (${o[k]})` : '-';
+  if (!k) return '-';
+  const total = sumObj(o);
+  const pct = total > 0 ? (o[k] / total * 100).toFixed(1) : '0.0';
+  return `${k} (${o[k]}건 · ${pct}%)`;
 }
 
 const PIE_COLORS = [
@@ -752,7 +755,10 @@ function renderVoc(main) {
 
   const totalA = Object.values(aggA).reduce((s, v) => s + v, 0);
   const totalB = Object.values(aggB).reduce((s, v) => s + v, 0);
-  const topKey = keys[0] ? keys[0].split('​').join(' > ') : '-';
+  const topName = keys[0] ? keys[0].split('​').join(' > ') : null;
+  const topCnt = topName ? aggA[keys[0]] : 0;
+  const topPct = totalA > 0 ? (topCnt / totalA * 100).toFixed(1) : '0.0';
+  const topLabel = topName ? `${topName} (${topCnt}건 · ${topPct}%)` : '-';
 
   const chLabel = state.vocChannel === 'chat' ? '채팅' :
                   state.vocChannel === 'call' ? '콜' : '전체';
@@ -760,7 +766,7 @@ function renderVoc(main) {
   // 카드
   main.appendChild(makeCardGrid([
     { label: `VOC 총건수 (${chLabel})`, value: fmtNum(totalA), prev: fmtNum(totalB), d: delta(totalA, totalB) },
-    { label: '상위 카테고리', value: topKey, prev: '', d: null },
+    { label: '상위 카테고리', value: topLabel, prev: '', d: null },
   ]));
 
   // 표 — 위클리 리포트 형식 (순위 | 대 | 중 | 1번 (건수%) | 2번 (건수%) | 변화%)
