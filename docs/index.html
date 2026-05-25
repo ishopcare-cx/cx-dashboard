@@ -13,6 +13,10 @@
     <div class="brand">
       <h1>CX 대시보드</h1>
       <span id="generated" class="generated">불러오는 중…</span>
+      <div class="mode-tabs" id="mode-tabs">
+        <button class="mode-tab active" data-mode="single">📊 퍼포먼스 확인</button>
+        <button class="mode-tab" data-mode="compare">📈 기간별 비교</button>
+      </div>
       <button id="now-collect" class="now-btn" title="GitHub Actions 워크플로 수동 트리거">🔄 지금 수집</button>
     </div>
     <div id="now-panel" class="now-panel" hidden>
@@ -24,25 +28,32 @@
       </div>
       <div class="now-row">
         <button data-wf="collect-chat.yml">📥 채팅 신규 수집 (5~10분)</button>
+        <button data-wf="collect-call-request.yml" data-call="1">📞 콜 신규 수집 (3~5분)</button>
         <button data-wf="publish-dashboard.yml">🔁 빌드만 (시트→data.json, 1분)</button>
         <a href="https://github.com/jieun12-web/cx-dashboard/actions" target="_blank" class="link-btn">또는 GitHub Actions에서 직접 ↗</a>
       </div>
       <div id="now-msg" class="now-msg"></div>
-      <small class="now-note">⚠️ 콜·콜VOC는 회사 IP에서만 수집 가능(콜라비 제약) → PC 작업스케줄러 평일 17:30이 유일한 자동 경로. 즉시 보려면 PC에서 <code>collect_call.py</code> 수동 실행.</small>
+      <small class="now-note">⚠️ 콜은 PC가 켜져 있어야 동작 (회사 IP만 콜라비 접근 가능 — PC 폴링이 1분마다 요청 감지 후 수집).<br>채팅·콜 모두 평일 09·13·19시 자동 수집 (채팅은 추가로 23:30 마감 수집).</small>
     </div>
   </header>
 
   <section class="controls">
     <div class="periods">
       <div class="period">
-        <span class="period-label period-a">1번 기간</span>
+        <span class="period-label period-a" id="pa-label">기간</span>
         <input type="text" id="pa-range" class="date-range-input" placeholder="시작일 ~ 종료일" readonly>
       </div>
-      <div class="period">
-        <span class="period-label period-b">2번 기간</span>
+      <div class="period mode-compare-only">
+        <span class="period-label period-b">비교 기간</span>
         <input type="text" id="pb-range" class="date-range-input" placeholder="시작일 ~ 종료일" readonly>
       </div>
-      <div class="presets">
+      <div class="presets mode-single-only">
+        <button data-preset-single="today">오늘</button>
+        <button data-preset-single="yesterday">어제</button>
+        <button data-preset-single="7d">최근 7일</button>
+        <button data-preset-single="thisMonth">이번 달</button>
+      </div>
+      <div class="presets mode-compare-only">
         <button data-preset="7d">최근 7일 vs 직전 7일</button>
         <button data-preset="14d">최근 14일 vs 직전 14일</button>
         <button data-preset="thisMonth">이번 달 vs 지난 달</button>

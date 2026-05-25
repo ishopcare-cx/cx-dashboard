@@ -8,6 +8,7 @@ const state = {
   view: 'all',
   agent: null,     // 상담사별 뷰 — 특정 상담사 필터(null=전체)
   vocChannel: 'all', // VOC 탭 채널 토글: 'all' | 'chat' | 'call'
+  mode: 'single',  // 'single' = 퍼포먼스 확인 / 'compare' = 기간별 비교
   periodA: { start: '', end: '' },
   periodB: { start: '', end: '' },
 };
@@ -35,7 +36,73 @@ async function load() {
 }
 
 function initDefaults() {
-  setPreset('7d');
+  // 마지막 모드 복원 (없으면 'single' 기본)
+  state.mode = localStorage.getItem('cx-mode') || 'single';
+  document.body.dataset.mode = state.mode;
+  document.getElementById('pa-label').textContent =
+    state.mode === 'compare' ? '1번 기간' : '기간';
+  document.querySelectorAll('#mode-tabs .mode-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === state.mode);
+  });
+
+  if (state.mode === 'single') {
+    // 마지막 사용 기간 복원, 없으면 어제
+    const saved = JSON.parse(localStorage.getItem('cx-period-single') || 'null');
+    if (saved && saved.start && saved.end) {
+      state.periodA = saved;
+    } else {
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      state.periodA = { start: ymd(y), end: ymd(y) };
+    }
+    state.periodB = { start: '', end: '' };
+  } else {
+    setPreset('7d');
+  }
+}
+
+function setMode(mode) {
+  if (mode === state.mode) return;
+  state.mode = mode;
+  localStorage.setItem('cx-mode', mode);
+  document.body.dataset.mode = mode;
+  document.getElementById('pa-label').textContent =
+    mode === 'compare' ? '1번 기간' : '기간';
+  document.querySelectorAll('#mode-tabs .mode-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  if (mode === 'single') {
+    const saved = JSON.parse(localStorage.getItem('cx-period-single') || 'null');
+    if (saved && saved.start && saved.end) {
+      state.periodA = saved;
+    } else {
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      state.periodA = { start: ymd(y), end: ymd(y) };
+    }
+    state.periodB = { start: '', end: '' };
+    if (fpA) fpA.setDate([state.periodA.start, state.periodA.end], false);
+  } else {
+    setPreset('7d');
+  }
+  render();
+}
+
+function setPresetSingle(p) {
+  const today = new Date();
+  let start, end;
+  if (p === 'today') { start = end = new Date(today); }
+  else if (p === 'yesterday') {
+    const y = new Date(today); y.setDate(y.getDate() - 1);
+    start = end = y;
+  } else if (p === '7d') {
+    end = new Date(today);
+    start = new Date(today); start.setDate(start.getDate() - 6);
+  } else if (p === 'thisMonth') {
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+    end = new Date(today);
+  }
+  state.periodA = { start: ymd(start), end: ymd(end) };
+  localStorage.setItem('cx-period-single', JSON.stringify(state.periodA));
+  if (fpA) fpA.setDate([state.periodA.start, state.periodA.end], false);
 }
 
 const ymd = d => {
@@ -96,7 +163,9 @@ function bindNowCollect() {
           body: JSON.stringify({ ref: 'main' }),
         });
         if (r.status === 204) {
-          const wait = b.dataset.wf === 'collect-chat.yml' ? '5~10분' : '1~2분';
+          const wait = b.dataset.call ? '3~5분 (PC가 켜져 있어야 함)'
+            : b.dataset.wf === 'collect-chat.yml' ? '5~10분'
+            : '1~2분';
           msg.innerHTML = `✅ 트리거 완료 — ${wait} 후 페이지 새로고침 (Ctrl+Shift+R). ` +
             `<a href="https://github.com/jieun12-web/cx-dashboard/actions" target="_blank">진행 확인 ↗</a>`;
           msg.className = 'now-msg ok';
@@ -128,6 +197,9 @@ function bindEvents() {
       if (dates.length === 2) {
         state[key].start = ymd(dates[0]);
         state[key].end = ymd(dates[1]);
+        if (state.mode === 'single' && key === 'periodA') {
+          localStorage.setItem('cx-period-single', JSON.stringify(state.periodA));
+        }
         render();
       }
     },
@@ -136,6 +208,9 @@ function bindEvents() {
         instance.setDate([dates[0], dates[0]], false);
         state[key].start = ymd(dates[0]);
         state[key].end = ymd(dates[0]);
+        if (state.mode === 'single' && key === 'periodA') {
+          localStorage.setItem('cx-period-single', JSON.stringify(state.periodA));
+        }
         render();
       }
     },
@@ -159,8 +234,14 @@ function bindEvents() {
       render();
     };
   });
-  document.querySelectorAll('.presets button').forEach(b => {
+  document.querySelectorAll('.presets button[data-preset]').forEach(b => {
     b.onclick = () => { setPreset(b.dataset.preset); render(); };
+  });
+  document.querySelectorAll('.presets button[data-preset-single]').forEach(b => {
+    b.onclick = () => { setPresetSingle(b.dataset.presetSingle); render(); };
+  });
+  document.querySelectorAll('#mode-tabs .mode-tab').forEach(b => {
+    b.onclick = () => setMode(b.dataset.mode);
   });
 }
 

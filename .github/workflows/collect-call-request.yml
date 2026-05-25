@@ -1,0 +1,14 @@
+name: collect-call-request
+
+# 빈 마커 워크플로 — 대시보드 콜 버튼이 호출.
+# PC 폴링 스크립트가 이 워크플로의 최신 실행 시각을 보고
+# 새 요청 감지 시 PC에서 collect_call.py 실행 (회사 IP 제약).
+on:
+  workflow_dispatch:
+
+jobs:
+  marker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: echo "Call collection requested at $(date -u +%FT%TZ)"
