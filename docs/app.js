@@ -1012,7 +1012,7 @@ function drawRespRate(rows, A, B) {
   });
   const inH = inA.map(r => r['총인입'] || 0);
   const ans = inA.map(r => r['연결성공'] || 0);
-  const rate = inA.map(r => r['총인입'] ? (r['연결성공'] / r['총인입'] * 100) : null);
+  const rate = inA.map(r => r['연결시도'] ? (r['연결성공'] / r['연결시도'] * 100) : null);
 
   if (respRateChart) respRateChart.destroy();
   const ctx = document.getElementById('resp-rate');
