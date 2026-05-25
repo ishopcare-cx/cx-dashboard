@@ -126,6 +126,14 @@ function bindEvents() {
         render();
       }
     },
+    onClose: (dates, _str, instance) => {
+      if (dates.length === 1) {
+        instance.setDate([dates[0], dates[0]], false);
+        state[key].start = ymd(dates[0]);
+        state[key].end = ymd(dates[0]);
+        render();
+      }
+    },
   });
   fpA = flatpickr('#pa-range', fpOpts('periodA'));
   fpB = flatpickr('#pb-range', fpOpts('periodB'));
