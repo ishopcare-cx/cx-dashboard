@@ -205,6 +205,63 @@ def aggregate_call_team(rows):
     return sorted(out, key=lambda x: x["date"])
 
 
+def aggregate_chat_voc(rows):
+    """chat_raw → [{date, cat1, cat2, count}] — VOC태그 '/'로 대>중 파싱.
+
+    한 채팅에 세미콜론 구분 다중 태그 가능. '대 / 중' 형식만 채택.
+    """
+    h = rows[0]
+    ci_created = _col(h, "생성일")
+    ci_voc = _col(h, "VOC태그")
+    out = defaultdict(int)
+    for r in rows[1:]:
+        if len(r) <= ci_created:
+            continue
+        date = (r[ci_created] or "").strip()
+        if not date:
+            continue
+        voc = (r[ci_voc] or "").strip() if 0 <= ci_voc < len(r) else ""
+        for tag in voc.split(";"):
+            tag = tag.strip()
+            if not tag or "/" not in tag:
+                continue
+            parts = [p.strip() for p in tag.split("/", 1)]
+            if len(parts) < 2 or not parts[0] or not parts[1]:
+                continue
+            out[(date, parts[0], parts[1])] += 1
+    return [{"date": d, "cat1": c1, "cat2": c2, "count": cnt}
+            for (d, c1, c2), cnt in sorted(out.items())]
+
+
+def aggregate_call_voc(rows):
+    """call_voc_daily → [{date, cat1, cat2, count}] — 소분류는 합산.
+
+    합계 컬럼(수신+발신) 사용 — 콜 응대 발생 기준 VOC.
+    """
+    h = rows[0]
+    ci_date = _col(h, "일자")
+    ci_c1 = _col(h, "대분류")
+    ci_c2 = _col(h, "중분류")
+    ci_total = _col(h, "합계")
+    out = defaultdict(int)
+    for r in rows[1:]:
+        if len(r) <= ci_date:
+            continue
+        date = (r[ci_date] or "").strip()
+        if not date:
+            continue
+        c1 = (r[ci_c1] or "").strip() if 0 <= ci_c1 < len(r) else ""
+        c2 = (r[ci_c2] or "").strip() if 0 <= ci_c2 < len(r) else ""
+        if not c1 or not c2 or c2 == "-":
+            continue
+        total = _int(r[ci_total]) if 0 <= ci_total < len(r) else 0
+        if total <= 0:
+            continue
+        out[(date, c1, c2)] += total
+    return [{"date": d, "cat1": c1, "cat2": c2, "count": cnt}
+            for (d, c1, c2), cnt in sorted(out.items())]
+
+
 def aggregate_call_agent(rows):
     h = rows[0]
     cols = {n: _col(h, n) for n in (
@@ -277,6 +334,16 @@ def main():
     else:
         call_agent, call_squad = [], []
 
+    # VOC — 채팅(VOC태그 '/' 파싱) + 콜(call_voc_daily 대>중 집계)
+    chat_voc = aggregate_chat_voc(chat_rows) if len(chat_rows) > 1 else []
+    try:
+        call_voc_rows = _read(sheet, "call_voc_daily")
+        log.info("call_voc_daily %d행", max(0, len(call_voc_rows) - 1))
+        call_voc = aggregate_call_voc(call_voc_rows) if len(call_voc_rows) > 1 else []
+    except Exception as e:
+        log.warning("call_voc_daily 읽기 실패(아직 미수집 가능) — %s", e)
+        call_voc = []
+
     # 상담사 명단 (config.SQUADS 기반 + agent_chats·call에 등장한 이름 합집합)
     all_agents = set()
     for squad_agents in config.SQUADS.values():
@@ -298,8 +365,13 @@ def main():
             "agent_by_date": call_agent,
             "squad_by_date": call_squad,
         },
+        "voc": {
+            "chat": chat_voc,   # 채팅 VOC 태그 (대>중)
+            "call": call_voc,   # 콜라비 COUNSEL_STAT (대>중, 소분류 합산)
+        },
         "voc_민원": {"available": False, "note": "엑셀 링크 수령 후 추가"},
     }
+    log.info("voc: chat %d행 / call %d행", len(chat_voc), len(call_voc))
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=2),

@@ -19,6 +19,13 @@ CALL_TEAM_DAILY_HEADER = [
     "총통화_초", "호전달",
 ]
 
+# COUNSEL_STAT 표 (일자 컬럼 없음 — 외부에서 주입)
+CALL_VOC_DAILY_HEADER = [
+    "키", "수집일시", "일자",
+    "가입자", "대분류", "중분류", "소분류",
+    "수신건수", "발신건수", "합계", "상담비율_퍼센트",
+]
+
 # ── 파서 ──────────────────────────────────────────────────────────
 _HMS = re.compile(r"^(\d+):(\d{2}):(\d{2})$")
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -81,6 +88,39 @@ def agent_row(table_row, now=None):
         parse_hms_to_seconds(table_row[5]),            # 총통화
         parse_int(table_row[9]) if len(table_row) > 9 else 0,    # 발신시도
         parse_int(table_row[10]) if len(table_row) > 10 else 0,  # 발신연결
+    ]
+
+
+def call_voc_row(table_row, date, now=None):
+    """COUNSEL_STAT 표 한 행 → call_voc_daily 행. 헤더/소계/합계는 None.
+
+    date: 'YYYY-MM-DD' — 표에 일자 컬럼이 없어 외부 주입.
+    헤더: 가입자·대분류·중분류·소분류·수신건수·발신건수·합계·상담비율(%)
+    """
+    if not table_row or len(table_row) < 8:
+        return None
+    # 데이터 행만 — 첫 컬럼이 '아이샵케어' (가입자) 같은 텍스트, 합계/소계는 다름
+    tenant = (table_row[0] or "").strip()
+    cat1 = (table_row[1] or "").strip()
+    cat2 = (table_row[2] or "").strip()
+    cat3 = (table_row[3] or "").strip()
+    # 헤더 행 거름
+    if tenant == "가입자" or cat1 == "대분류":
+        return None
+    # 합계/소계 행 거름 — 분류가 비어있거나 '합계/소계' 명시
+    if not cat1 or cat1 in ("합계", "소계", "Total"):
+        return None
+    now = now or datetime.datetime.now(KST)
+    recv = parse_int(table_row[4])
+    sent = parse_int(table_row[5])
+    total = parse_int(table_row[6])
+    ratio = parse_float(table_row[7])
+    cat3_key = cat3 if cat3 and cat3 != "-" else ""
+    return [
+        f"{date}|{cat1}|{cat2}|{cat3_key}",            # 키
+        now.strftime("%Y-%m-%d %H:%M:%S"),
+        date, tenant, cat1, cat2, cat3,
+        recv, sent, total, ratio,
     ]
 
 

@@ -7,6 +7,7 @@ const state = {
   type: 'chat',
   view: 'all',
   agent: null,     // 상담사별 뷰 — 특정 상담사 필터(null=전체)
+  vocChannel: 'all', // VOC 탭 채널 토글: 'all' | 'chat' | 'call'
   periodA: { start: '', end: '' },
   periodB: { start: '', end: '' },
 };
@@ -215,7 +216,14 @@ function render() {
   main.innerHTML = '';
   if (!state.data) return;
 
-  if (state.type === 'voc') {
+  // VOC·민원 탭일 때 하위탭은 의미 없음 → 비활성
+  document.querySelectorAll('.view-tabs .tab').forEach(b => {
+    const dim = (state.type === 'vocstat' || state.type === 'complaint');
+    b.disabled = dim;
+    b.style.opacity = dim ? '0.4' : '';
+  });
+
+  if (state.type === 'complaint') {
     main.innerHTML = `<div class="empty">민원 데이터는 엑셀 링크 수령 후 추가됩니다.</div>`;
     return;
   }
@@ -225,7 +233,8 @@ function render() {
   }
 
   if (state.type === 'chat') renderChat(main);
-  else renderCall(main);
+  else if (state.type === 'call') renderCall(main);
+  else if (state.type === 'vocstat') renderVoc(main);
 }
 
 // === 채팅 렌더 ===
@@ -587,7 +596,89 @@ function aggAgentChatTrend(rows, A, B, agent) {
   return Object.keys(byDate).sort().map(d => ({ date: d, 응대: byDate[d] }));
 }
 
-// VOC 패널 (단독 서브탭)
+// === VOC 상위탭 (vocstat) — 채널 토글 + 통합 표 ===
+function renderVoc(main) {
+  const voc = state.data.voc || { chat: [], call: [] };
+  const A = state.periodA, B = state.periodB;
+
+  // 채널 토글
+  main.appendChild(vocChannelToggle());
+
+  // 데이터셋 선택
+  let rows;
+  if (state.vocChannel === 'chat') rows = voc.chat;
+  else if (state.vocChannel === 'call') rows = voc.call;
+  else rows = [...voc.chat, ...voc.call];  // 전체 = 합산
+
+  // (cat1, cat2) 키별 1·2번 기간 카운트
+  const aggA = aggVoc(rows, A);
+  const aggB = aggVoc(rows, B);
+  const keys = Array.from(new Set([...Object.keys(aggA), ...Object.keys(aggB)]));
+  keys.sort((x, y) => (aggA[y] || 0) - (aggA[x] || 0));
+
+  const totalA = Object.values(aggA).reduce((s, v) => s + v, 0);
+  const totalB = Object.values(aggB).reduce((s, v) => s + v, 0);
+  const topKey = keys[0] ? keys[0].split('​').join(' > ') : '-';
+
+  const chLabel = state.vocChannel === 'chat' ? '채팅' :
+                  state.vocChannel === 'call' ? '콜' : '전체';
+
+  // 카드
+  main.appendChild(makeCardGrid([
+    { label: `VOC 총건수 (${chLabel})`, value: fmtNum(totalA), prev: fmtNum(totalB), d: delta(totalA, totalB) },
+    { label: '상위 카테고리', value: topKey, prev: '', d: null },
+  ]));
+
+  // 표 — 위클리 리포트 형식 (순위 | 대 | 중 | 1번 건수 | 2번 건수 | 변화%)
+  const rowsHtml = keys.slice(0, 30).map((k, i) => {
+    const [c1, c2] = k.split('​');
+    const av = aggA[k] || 0, bv = aggB[k] || 0;
+    return `<tr>
+      <td class="num">${i + 1}</td>
+      <td>${c1}</td>
+      <td>${c2}</td>
+      <td class="num">${fmtNum(av)}</td>
+      <td class="num">${fmtNum(bv)}</td>
+      <td class="num">${fmtDelta(delta(av, bv))}</td>
+    </tr>`;
+  });
+  main.appendChild(tablePanel(
+    `VOC 상위 30 — ${chLabel} (1번 기간 기준 정렬)`,
+    ['순위', '대분류', '중분류', '1번 건수', '2번 건수', '변화'],
+    rowsHtml,
+  ));
+}
+
+function aggVoc(rows, p) {
+  const out = {};
+  for (const r of rows) {
+    if (!inRange(r.date, p)) continue;
+    const k = r.cat1 + '​' + r.cat2;  // zero-width separator
+    out[k] = (out[k] || 0) + (r.count || 0);
+  }
+  return out;
+}
+
+function vocChannelToggle() {
+  const div = document.createElement('div');
+  div.className = 'panel';
+  const opts = [
+    ['all', '전체 (채팅+콜)'],
+    ['chat', '채팅만'],
+    ['call', '콜만'],
+  ];
+  div.innerHTML = `<div class="tab-group">${
+    opts.map(([k, l]) => `<button class="tab${state.vocChannel === k ? ' active' : ''}" data-ch="${k}">${l}</button>`).join('')
+  }</div>`;
+  setTimeout(() => {
+    div.querySelectorAll('button[data-ch]').forEach(b => {
+      b.onclick = () => { state.vocChannel = b.dataset.ch; render(); };
+    });
+  }, 0);
+  return div;
+}
+
+// VOC 패널 (단독 서브탭 — chat>VOC, 옛 voc_by_date용 호환)
 function vocPanel(rows, A, B, topN = 30) {
   const a = {}, b = {};
   for (const r of rows) {

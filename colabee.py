@@ -22,6 +22,7 @@ class Colabee:
         self.pw = password
         self.headless = headless
         self._pw = self._browser = self._ctx = self._page = None
+        self._on_stat_page = False  # COUNSEL_STAT 1회 진입 후 재사용
 
     def __enter__(self):
         self._pw = sync_playwright().start()
@@ -49,7 +50,8 @@ class Colabee:
         p.goto(self.base + "/", wait_until="domcontentloaded", timeout=30000)
         p.locator('input[name="account_id"]').fill(self.user)
         p.locator('input[name="account_pw"]').fill(self.pw)
-        p.locator('input[type="submit"]').click()
+        # exosphere-loading/notice 모달이 가릴 수 있어 JS dispatch click
+        p.evaluate("document.querySelector('input[type=\"submit\"]').click()")
         try:
             p.wait_for_load_state("networkidle", timeout=20000)
         except Exception:
@@ -115,4 +117,38 @@ class Colabee:
         self._click("IPPBX 통계")
         self._click("수신통계", settle_ms=2500)
         self._click("일별 분류", settle_ms=2500)
+        return self._extract_first_table()
+
+    def fetch_counsel_stat(self, date):
+        """상담 관리 > 상담통계 (id=COUNSEL_STAT) — 단일 날짜 분류별 집계.
+
+        date: 'YYYY-MM-DD'. dateFrom/dateTo 둘 다 같은 날로 설정 → #reload.
+
+        반환: [헤더, 데이터…] — 헤더 = 가입자·대분류·중분류·소분류·
+        수신건수·발신건수·합계·상담비율. 데이터 없는 날도 빈 표 반환.
+        flatpickr 인스턴스가 있으면 API로, 없으면 input value 직접.
+        """
+        if not self._on_stat_page:
+            self._page.evaluate(
+                "document.getElementById('COUNSEL_STAT').click()")
+            self._page.wait_for_timeout(3000)
+            if "COUNSEL_STAT" not in self._page.url:
+                raise RuntimeError(f"COUNSEL_STAT 진입 실패 — URL={self._page.url}")
+            self._on_stat_page = True
+
+        self._page.evaluate("""(d) => {
+            for (const id of ['dateFrom', 'dateTo']) {
+                const el = document.getElementById(id);
+                if (!el) continue;
+                if (el._flatpickr) {
+                    el._flatpickr.setDate(d, true);
+                } else {
+                    el.value = d;
+                    el.dispatchEvent(new Event('change', {bubbles: true}));
+                }
+            }
+        }""", date)
+        self._page.wait_for_timeout(500)
+        self._page.evaluate("document.getElementById('reload').click()")
+        self._page.wait_for_timeout(3500)
         return self._extract_first_table()

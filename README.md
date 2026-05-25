@@ -9,14 +9,18 @@ CX팀 대시보드 — 채널톡 채팅 + 콜라비 전화 통계 자동수집 +
 | 단계 | 데이터 | 어디서 | 어떻게 | 어디로 |
 |------|--------|--------|--------|--------|
 | ① 채팅 수집 | 채널톡 Open API | api.channel.io (인터넷) | **GitHub Actions** 매일 KST 23:30 | `chat_raw` 탭 |
-| ② 전화 수집 | 콜라비 관리자 페이지 HTML 표 | callrabi.ishopcare.co.kr (회사 IP만) | **PC 작업 스케줄러** 평일 KST 17:30 | `call_daily` · `call_team_daily` 탭 |
+| ② 전화 수집 | 콜라비 관리자 페이지 HTML 표 | callrabi.ishopcare.co.kr (회사 IP만) | **PC 작업 스케줄러** 평일 KST 17:30 | `call_daily` · `call_team_daily` · `call_voc_daily` 탭 |
 | ③ 대시보드 | `chat_raw`·`call_*` | GitHub Actions (publish-dashboard, KST 23:45) | `build_data.py` → `docs/data.json` → GitHub Pages | 위 URL 접속 |
 
 콜라비는 **회사 IP만 허용**해 GitHub Actions에서 접근 불가 → PC 의존. 채팅·대시보드 빌드는 GHA로 PC 무관.
 
 ## 대시보드
 
-상위탭 **채팅 / 콜 / 민원(준비중)** × 하위탭 **전체 / 스쿼드별 / 상담사별** + **두 기간 비교**(1번/2번, 증감%). 카드·표·라인차트. 매일 KST 23:45 자동 빌드 + 푸시 시 자동 재빌드.
+상위탭 **채팅 / 콜 / VOC / 민원(준비중)** × 하위탭 **전체 / 스쿼드별 / 상담사별** + **두 기간 비교**(1번/2번, 증감%). 카드·표·라인차트.
+
+**VOC 탭**: 채널 토글(전체=채팅+콜 합산 / 채팅만 / 콜만) — 위클리 리포트 형식 표 `순위 | 대분류 | 중분류 | 1번 건수 | 2번 건수 | 변화%`.
+
+매일 KST 23:45 자동 빌드 + 푸시 시 자동 재빌드.
 
 > 데이터(상담사 이름·실적·VOC 분포)는 저장소 public이라 URL을 아는 누구나 접근 가능. 외부 노출 우려가 생기면 별도 호스팅(Cloudflare Access 등)으로 전환.
 
@@ -29,11 +33,15 @@ CX팀 대시보드 — 채널톡 채팅 + 콜라비 전화 통계 자동수집 +
 
 ## ② 전화 수집
 
-- Playwright로 콜라비 로그인 → 두 페이지 HTML `<table>` 직접 추출
+- Playwright로 콜라비 로그인 → 세 페이지 HTML `<table>` 직접 추출
   (엑셀변환은 AES-256 DRM이라 사용 불가)
 - 상담원별 일별: 오늘분 — 매일 누적
 - 수신통계 일별 분류: 당월 전체 — 매일 upsert
-- 키: `call_daily=일자_상담원ID`, `call_team_daily=일자`
+- 상담통계(콜 VOC): 어제(확정) + 오늘(스냅샷) 두 번 fetch — `dateFrom`/`dateTo`
+  flatpickr API로 단일 날짜씩 조회 후 `#reload`. 표에 일자 컬럼이 없어
+  외부에서 주입.
+- 키: `call_daily=일자_상담원ID`, `call_team_daily=일자`,
+  `call_voc_daily=일자|대|중|소`
 
 ## chat_raw 컬럼
 
