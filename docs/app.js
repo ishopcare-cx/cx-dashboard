@@ -61,7 +61,54 @@ function setPreset(p) {
   if (fpB) fpB.setDate([state.periodB.start, state.periodB.end], false);
 }
 
+// "지금 수집" 패널 — GitHub workflow_dispatch 호출
+function bindNowCollect() {
+  const btn = document.getElementById('now-collect');
+  const panel = document.getElementById('now-panel');
+  const patIn = document.getElementById('gh-pat');
+  const msg = document.getElementById('now-msg');
+  if (!btn || !panel) return;
+  // 저장된 PAT 복원
+  const saved = localStorage.getItem('gh-pat');
+  if (saved) patIn.value = saved;
+  btn.onclick = () => { panel.hidden = !panel.hidden; };
+  panel.querySelectorAll('button[data-wf]').forEach(b => {
+    b.onclick = async () => {
+      const pat = patIn.value.trim();
+      if (!pat) { msg.textContent = '❌ PAT 입력 필요'; msg.className = 'now-msg err'; return; }
+      localStorage.setItem('gh-pat', pat);
+      msg.textContent = '⏳ 트리거 중…'; msg.className = 'now-msg';
+      try {
+        const r = await fetch(
+          `https://api.github.com/repos/jieun12-web/cx-dashboard/actions/workflows/${b.dataset.wf}/dispatches`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${pat}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+          body: JSON.stringify({ ref: 'main' }),
+        });
+        if (r.status === 204) {
+          const wait = b.dataset.wf === 'collect-chat.yml' ? '5~10분' : '1~2분';
+          msg.innerHTML = `✅ 트리거 완료 — ${wait} 후 페이지 새로고침 (Ctrl+Shift+R). ` +
+            `<a href="https://github.com/jieun12-web/cx-dashboard/actions" target="_blank">진행 확인 ↗</a>`;
+          msg.className = 'now-msg ok';
+        } else {
+          const err = await r.text();
+          msg.textContent = `❌ ${r.status}: ${err.slice(0, 200)}`;
+          msg.className = 'now-msg err';
+        }
+      } catch (e) {
+        msg.textContent = `❌ ${e.message}`;
+        msg.className = 'now-msg err';
+      }
+    };
+  });
+}
+
 function bindEvents() {
+  bindNowCollect();
   // flatpickr range — 채널톡 풍 듀얼 캘린더
   const ymd = d => d.toISOString().slice(0, 10);
   const fpOpts = (key) => ({
