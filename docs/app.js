@@ -38,9 +38,15 @@ function initDefaults() {
   setPreset('7d');
 }
 
+const ymd = d => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dy = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dy}`;
+};
+
 function setPreset(p) {
   const today = new Date();
-  const ymd = d => d.toISOString().slice(0, 10);
   if (p === '7d' || p === '14d') {
     const n = p === '7d' ? 7 : 14;
     const aEnd = new Date(today);
@@ -110,7 +116,6 @@ function bindNowCollect() {
 function bindEvents() {
   bindNowCollect();
   // flatpickr range — 채널톡 풍 듀얼 캘린더
-  const ymd = d => d.toISOString().slice(0, 10);
   const fpOpts = (key) => ({
     mode: 'range',
     showMonths: 2,
