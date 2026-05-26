@@ -11,6 +11,10 @@ on:
         description: 'closed 재수집 창(일수) — 채널톡 통계 기준 30일'
         default: '30'
 
+permissions:
+  contents: read
+  actions: write   # publish-dashboard workflow_dispatch 호출용 (없으면 HTTP 403)
+
 concurrency:
   group: collect-chat
   cancel-in-progress: false
