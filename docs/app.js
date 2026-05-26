@@ -19,6 +19,9 @@ let complaintTypeChart = null, complaintRewardChart = null;
 let fpA = null, fpB = null;  // flatpickr 인스턴스
 const SQUAD_CHIP = { 'CX 1': 'squad-cx1', 'CX 2': 'squad-cx2', '교육': 'squad-edu', '기타': 'squad-etc' };
 
+// 그 날 콜 포지션이었던 상담사 식별 임계값 (수신연결 ≥ N) — spec 2026-05-26
+const CALL_ACTIVE_THRESHOLD = 20;
+
 // ── 로드 ──────────────────────────────────────────────────────
 async function load() {
   try {
@@ -370,6 +373,54 @@ function aggCallAgentRow(rows, p, filter = {}) {
   };
 }
 
+// 기간 합산 팀 시도 — 스쿼드/활성자 응답률 분모
+function sumTeamAttempts(teamRows, p) {
+  let s = 0;
+  for (const r of teamRows) {
+    if (!inRange(r.date, p)) continue;
+    s += r['연결시도'] || 0;
+  }
+  return s;
+}
+
+// 활성자만 합산 (single 모드 카드 — 그 날 활성자 한정 합)
+function aggActiveAgents(agentRows, p, filter = {}) {
+  let n = 0, recv = 0, tot = 0, out = 0;
+  for (const r of agentRows) {
+    if (!inRange(r.date, p)) continue;
+    if (filter.squad && r.squad !== filter.squad) continue;
+    if ((r['수신연결'] || 0) < CALL_ACTIVE_THRESHOLD) continue;
+    n += 1;
+    recv += r['수신연결'] || 0;
+    tot += r['총통화_초'] || 0;
+    out += r['발신연결'] || 0;
+  }
+  return { n, 수신연결: recv, 총통화: tot, 발신연결: out,
+           평균통화: recv ? (tot / recv) : null };
+}
+
+// 활성 상담사 평균 인원 — 매일 수신연결≥CALL_ACTIVE_THRESHOLD인 상담사 수의 일평균
+// filter.squad 주면 그 스쿼드 한정
+function countActiveAvg(agentRows, p, filter = {}) {
+  const byDate = {};
+  for (const r of agentRows) {
+    if (!inRange(r.date, p)) continue;
+    if (filter.squad && r.squad !== filter.squad) continue;
+    if ((r['수신연결'] || 0) < CALL_ACTIVE_THRESHOLD) continue;
+    byDate[r.date] = (byDate[r.date] || 0) + 1;
+  }
+  // 기간 안에서 데이터가 있는 날(=수신연결>0인 날) 기준 평균
+  const teamDays = new Set();
+  for (const r of agentRows) {
+    if (!inRange(r.date, p)) continue;
+    if (filter.squad && r.squad !== filter.squad) continue;
+    if ((r['수신연결'] || 0) > 0) teamDays.add(r.date);
+  }
+  const days = teamDays.size || 1;
+  const sum = Object.values(byDate).reduce((a, b) => a + b, 0);
+  return sum / days;
+}
+
 // ── 렌더 진입 ──────────────────────────────────────────────────
 function render() {
   const main = document.getElementById('content');
@@ -484,16 +535,26 @@ function renderCall(main) {
 
   if (state.view === 'squad') {
     const squads = state.data.squads;
+    const attemptsA = sumTeamAttempts(d.team_by_date, A);
+    const attemptsB = sumTeamAttempts(d.team_by_date, B);
     const rows = [];
     for (const s of squads) {
       const ma = aggCallAgentRow(d.agent_by_date, A, { squad: s });
       const mb = aggCallAgentRow(d.agent_by_date, B, { squad: s });
       if (ma.수신연결 === 0 && mb.수신연결 === 0) continue;
-      rows.push(rowCallGroup(`<span class="chip ${SQUAD_CHIP[s]||''}">${s}</span>`, ma, mb));
+      const rateA = attemptsA ? (ma.수신연결 / attemptsA * 100) : null;
+      const rateB = attemptsB ? (mb.수신연결 / attemptsB * 100) : null;
+      const activeA = countActiveAvg(d.agent_by_date, A, { squad: s });
+      const activeB = countActiveAvg(d.agent_by_date, B, { squad: s });
+      rows.push(rowCallGroup(
+        `<span class="chip ${SQUAD_CHIP[s]||''}">${s}</span>`,
+        ma, mb, rateA, rateB, activeA, activeB,
+      ));
     }
+    const title = '스쿼드별 콜 — 응답률 = 스쿼드 수신연결 / 팀 연결시도 (1번 기간)';
     main.appendChild(tablePanel(
-      '스쿼드별 콜 (1번 기간)',
-      ['스쿼드', '수신연결', '총통화', '평균통화', '발신연결'],
+      title,
+      ['스쿼드', '활성 N명', '수신연결', '응답률', '평균통화', '발신연결'],
       rows,
     ));
     return;
@@ -512,6 +573,21 @@ function renderCall(main) {
       ];
       main.appendChild(makeCardGrid(cards));
       return;
+    }
+    // 전체 표 — single 모드에선 활성자 카드 한 줄 먼저
+    if (state.mode === 'single') {
+      const act = aggActiveAgents(d.agent_by_date, A);
+      const attempts = sumTeamAttempts(d.team_by_date, A);
+      const rate = attempts ? (act.수신연결 / attempts * 100) : null;
+      main.appendChild(notePanel(
+        `🎯 활성 콜 상담사 = 그 날 <strong>수신연결 ${CALL_ACTIVE_THRESHOLD}건 이상</strong>인 상담사 ` +
+        `(콜 포지션 자동 식별 · 휴무·채팅 포지션 제외)`));
+      main.appendChild(makeCardGrid([
+        { label: '활성 인원', value: fmtNum(act.n), prev: '', d: null },
+        { label: '활성자 응답률 (vs 팀 시도)', value: fmtPct(rate), prev: '', d: null },
+        { label: '활성자 평균통화', value: fmtSec(act.평균통화), prev: '', d: null },
+        { label: '활성자 발신연결 합', value: fmtNum(act.발신연결), prev: '', d: null },
+      ]));
     }
     const agents = collectCallAgentRows(d.agent_by_date, A, B);
     main.appendChild(tablePanel(
@@ -638,11 +714,14 @@ function rowChatGroup(label, a, b) {
   </tr>`;
 }
 
-function rowCallGroup(label, a, b) {
+function rowCallGroup(label, a, b, rateA, rateB, activeA, activeB) {
+  const fmtActive = n => (n == null || isNaN(n)) ? '-'
+    : (Math.abs(n - Math.round(n)) < 1e-9 ? String(Math.round(n)) : n.toFixed(1));
   return `<tr>
     <td>${label}</td>
+    <td class="num">${fmtActive(activeA)}</td>
     <td class="num">${fmtNum(a.수신연결)} ${fmtDelta(delta(a.수신연결, b.수신연결))}</td>
-    <td class="num">${fmtSec(a.총통화)}</td>
+    <td class="num">${fmtPct(rateA)} ${fmtDelta(deltaPp(rateA, rateB), true)}</td>
     <td class="num">${fmtSec(a.평균통화)}</td>
     <td class="num">${fmtNum(a.발신연결)}</td>
   </tr>`;
@@ -666,8 +745,11 @@ function collectCallAgentRows(allRows, A, B) {
     const aCnt = sum(aR, '수신연결'), bCnt = sum(bR, '수신연결');
     const tot = sum(aR, '총통화_초');
     const avg = aCnt ? (tot / aCnt) : null;
+    // 활성 배지 — 단일 모드(하루)면 그 날 그 행 ≥THRESHOLD, 기간 합이면 1번 기간 합 ≥THRESHOLD
+    const active = aCnt >= CALL_ACTIVE_THRESHOLD;
+    const badge = active ? ' <span class="badge-active">●활성</span>' : '';
     rows.push(`<tr>
-      <td>${name}</td>
+      <td>${name}${badge}</td>
       <td><span class="chip ${SQUAD_CHIP[squadOf[name]]||''}">${squadOf[name]||'기타'}</span></td>
       <td class="num">${fmtNum(aCnt)}</td>
       <td class="num">${fmtNum(bCnt)}</td>
