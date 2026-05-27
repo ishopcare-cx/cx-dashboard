@@ -400,6 +400,18 @@ function aggActiveAgents(agentRows, p, filter = {}) {
            평균통화: recv ? (tot / recv) : null };
 }
 
+// 그 기간 하루라도 수신연결 ≥ THRESHOLD를 채운 상담사 이름 목록
+function listActiveAgents(agentRows, p, filter = {}) {
+  const names = new Set();
+  for (const r of agentRows) {
+    if (!inRange(r.date, p)) continue;
+    if (filter.squad && r.squad !== filter.squad) continue;
+    if ((r['수신연결'] || 0) < CALL_ACTIVE_THRESHOLD) continue;
+    if (r.agent) names.add(r.agent);
+  }
+  return Array.from(names).sort();
+}
+
 // 활성 상담사 평균 인원 — 매일 수신연결≥CALL_ACTIVE_THRESHOLD인 상담사 수의 일평균
 // filter.squad 주면 그 스쿼드 한정
 function countActiveAvg(agentRows, p, filter = {}) {
@@ -550,12 +562,13 @@ function renderCall(main) {
       if (ma.수신연결 === 0 && mb.수신연결 === 0) continue;
       const activeA = countActiveAvg(d.agent_by_date, A, { squad: s });
       const activeB = countActiveAvg(d.agent_by_date, B, { squad: s });
+      const namesA = listActiveAgents(d.agent_by_date, A, { squad: s });
       // 스쿼드 응답률 = (스쿼드 1인당 수신) / (전체 1인당 시도) × 100
       const rateA = (stdA && activeA) ? (ma.수신연결 / activeA) / stdA * 100 : null;
       const rateB = (stdB && activeB) ? (mb.수신연결 / activeB) / stdB * 100 : null;
       rows.push(rowCallGroup(
         `<span class="chip ${SQUAD_CHIP[s]||''}">${s}</span>`,
-        ma, mb, rateA, rateB, activeA, activeB,
+        ma, mb, rateA, rateB, activeA, activeB, namesA,
       ));
     }
     const stdNote = stdA ? ` · 1인당 표준 시도 ≈ ${stdA.toFixed(1)}건` : '';
@@ -733,12 +746,15 @@ function rowChatGroup(label, a, b) {
   </tr>`;
 }
 
-function rowCallGroup(label, a, b, rateA, rateB, activeA, activeB) {
+function rowCallGroup(label, a, b, rateA, rateB, activeA, activeB, namesA) {
   const fmtActive = n => (n == null || isNaN(n)) ? '-'
     : (Math.abs(n - Math.round(n)) < 1e-9 ? String(Math.round(n)) : n.toFixed(1));
+  const tip = (namesA && namesA.length)
+    ? ` title="활성자: ${namesA.join(', ')}" style="cursor:help;text-decoration:underline dotted"`
+    : '';
   return `<tr>
     <td>${label}</td>
-    <td class="num">${fmtActive(activeA)}</td>
+    <td class="num"${tip}>${fmtActive(activeA)}</td>
     <td class="num">${fmtNum(a.수신연결)} ${fmtDelta(delta(a.수신연결, b.수신연결))}</td>
     <td class="num">${fmtPct(rateA)} ${fmtDelta(deltaPp(rateA, rateB), true)}</td>
     <td class="num">${fmtSec(a.평균통화)}</td>
