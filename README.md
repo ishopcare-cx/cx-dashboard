@@ -2,7 +2,7 @@
 
 CX팀 대시보드 — 채널톡 채팅 + 콜라비 전화 통계 자동수집 + 정적 웹 대시보드.
 
-**🔗 대시보드: https://jieun12-web.github.io/cx-dashboard/**
+**🔗 대시보드: https://ishopcare-cx.github.io/cx-dashboard/**
 
 ## 개요
 

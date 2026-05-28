@@ -159,7 +159,7 @@ function bindNowCollect() {
       msg.textContent = '⏳ 트리거 중…'; msg.className = 'now-msg';
       try {
         const r = await fetch(
-          `https://api.github.com/repos/jieun12-web/cx-dashboard/actions/workflows/${b.dataset.wf}/dispatches`, {
+          `https://api.github.com/repos/ishopcare-cx/cx-dashboard/actions/workflows/${b.dataset.wf}/dispatches`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${pat}`,
@@ -173,7 +173,7 @@ function bindNowCollect() {
             : b.dataset.wf === 'collect-chat.yml' ? '5~10분'
             : '1~2분';
           msg.innerHTML = `✅ 트리거 완료 — ${wait} 후 페이지 새로고침 (Ctrl+Shift+R). ` +
-            `<a href="https://github.com/jieun12-web/cx-dashboard/actions" target="_blank">진행 확인 ↗</a>`;
+            `<a href="https://github.com/ishopcare-cx/cx-dashboard/actions" target="_blank">진행 확인 ↗</a>`;
           msg.className = 'now-msg ok';
         } else {
           const err = await r.text();

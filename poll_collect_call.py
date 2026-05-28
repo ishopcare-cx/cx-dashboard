@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-REPO = "jieun12-web/cx-dashboard"
+REPO = "ishopcare-cx/cx-dashboard"
 MARKER_WF = "collect-call-request.yml"
 PUBLISH_WF = "publish-dashboard.yml"
 STATE_FILE = Path(__file__).parent / "poll_state.json"
