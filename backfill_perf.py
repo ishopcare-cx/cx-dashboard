@@ -41,7 +41,7 @@ def _push(perf, dst_tab, rows, date):
         log.warning("'%s' 조회 실패 — 적재 생략", dst_tab)
         return
     off, existing = info
-    fresh = [r for r in out if f"{r[0]}|{r[1]}" not in existing]
+    fresh = [r for r in out if f"{date}|{r[1]}" not in existing]   # ISO 날짜 기준
     if not fresh:
         log.info("'%s' — %s 이미 기록됨(중복)", dst_tab, date)
         return

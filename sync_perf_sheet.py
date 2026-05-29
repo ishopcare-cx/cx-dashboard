@@ -8,6 +8,7 @@
 """
 import datetime
 import logging
+import re
 import sys
 
 import config
@@ -37,6 +38,15 @@ def _fmt_date(iso):
     return f"{int(y)}. {int(m)}. {int(d)}"
 
 
+def _norm_date(s):
+    """표시형식 무관하게 'YYYY-MM-DD'로 정규화. '2026. 5. 6'·'2026-05-06' 모두 동일.
+
+    중복 방지 키 비교용 — 탭마다 날짜 표시형식이 달라(ISO vs '2026. 5. 26') 정규화 필요.
+    """
+    m = re.match(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", (s or "").strip())
+    return f"{int(m[1]):04d}-{int(m[2]):02d}-{int(m[3]):02d}" if m else (s or "").strip()
+
+
 def _table_info(perf, tab):
     """CX 탭의 (헤더 시작 열 offset, 기존 (날짜|상담원ID) 키 집합).
 
@@ -55,7 +65,7 @@ def _table_info(perf, tab):
     keys = set()
     for r in rows[1:]:
         if len(r) > off + 1 and (r[off] or "").strip() and (r[off + 1] or "").strip():
-            keys.add(f"{r[off]}|{r[off + 1]}")
+            keys.add(f"{_norm_date(r[off])}|{r[off + 1]}")   # 날짜 정규화 키
     return off, keys
 
 
@@ -91,7 +101,7 @@ def _sync(warehouse, perf, src_tab, dst_tab, date):
         log.warning("'%s' 조회 실패 — 안전을 위해 적재 생략", dst_tab)
         return
     off, existing = info
-    fresh = [row for row in out if f"{row[0]}|{row[1]}" not in existing]
+    fresh = [row for row in out if f"{date}|{row[1]}" not in existing]   # ISO 날짜 기준
     if not fresh:
         log.info("'%s' — %s 이미 기록됨(중복 없음)", dst_tab, date)
         return
