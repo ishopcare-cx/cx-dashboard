@@ -506,6 +506,38 @@ function render() {
   else if (state.type === 'call') renderCall(main);
   else if (state.type === 'vocstat') renderVoc(main);
   else if (state.type === 'complaint') renderComplaint(main);
+
+  // 지표(인사이트)는 모든 뷰 공통으로 제일 하단에 배치
+  appendInsights(main);
+}
+
+// 지표 토글 + 패널 + (스쿼드 뷰) 개인별 매트릭스 — 본문 맨 아래에 붙인다
+function appendInsights(main) {
+  const A = state.periodA;
+  const t = state.type;
+  // 개인 상세(상담사 선택) 화면과 콜/채팅 VOC 서브탭은 지표 없음
+  if ((t === 'chat' || t === 'call') && state.view === 'voc') return;
+  if ((t === 'chat' || t === 'call') && state.view === 'agent' && state.agent) return;
+
+  main.appendChild(insightsToggle());
+  if (!state.showInsights) return;
+
+  if (t === 'chat' || t === 'call') {
+    main.appendChild(insightsPanel(t, state.view, A));
+    if (state.view === 'squad') {
+      const mxWrap = document.createElement('div');
+      const targetSquads = state.insightSquad === 'all' ? state.data.squads : [state.insightSquad];
+      for (const s of targetSquads) {
+        const html = squadAgentMatrix(s, A, t);
+        if (html) mxWrap.insertAdjacentHTML('beforeend', html);
+      }
+      if (mxWrap.children.length) main.appendChild(mxWrap);
+    }
+  } else if (t === 'vocstat') {
+    main.appendChild(insightsPanel('vocstat', '', A));
+  } else if (t === 'complaint') {
+    main.appendChild(insightsPanel('complaint', '', A));
+  }
 }
 
 // === 채팅 렌더 ===
@@ -516,21 +548,6 @@ function renderChat(main) {
   if (state.view === 'voc') {
     main.appendChild(vocPanel(d.voc_by_date, A, B, 30));
     return;
-  }
-
-  // 지표 토글 + 패널 (모든 view 공통, agent view는 개인 상세 진입 시 제외)
-  main.appendChild(insightsToggle());
-  if (state.showInsights && !(state.view === 'agent' && state.agent)) {
-    main.appendChild(insightsPanel('chat', state.view, A));
-    if (state.view === 'squad') {
-      const mxWrap = document.createElement('div');
-      const targetSquads = state.insightSquad === 'all' ? state.data.squads : [state.insightSquad];
-      for (const s of targetSquads) {
-        const html = squadAgentMatrix(s, A, 'chat');
-        if (html) mxWrap.insertAdjacentHTML('beforeend', html);
-      }
-      if (mxWrap.children.length) main.appendChild(mxWrap);
-    }
   }
 
   if (state.view === 'all') {
@@ -608,14 +625,6 @@ function renderCall(main) {
     return;
   }
 
-  // 지표 토글 + 패널 (squad view는 하단에 별도 배치 — 스쿼드별 응답률 표를 먼저 보여줌)
-  if (state.view !== 'squad') {
-    main.appendChild(insightsToggle());
-    if (state.showInsights && !(state.view === 'agent' && state.agent)) {
-      main.appendChild(insightsPanel('call', state.view, A));
-    }
-  }
-
   if (state.view === 'all') {
     const a = aggCallTeam(d.team_by_date, A);
     const b = aggCallTeam(d.team_by_date, B);
@@ -662,20 +671,7 @@ function renderCall(main) {
       rows,
     );
     bindSquadToggle(panel);
-    main.appendChild(panel);   // 1번: 스쿼드별 응답률 표를 맨 위에
-
-    // 지표 + 개인별 매트릭스 — 제일 하단에 배치
-    main.appendChild(insightsToggle());
-    if (state.showInsights) {
-      main.appendChild(insightsPanel('call', 'squad', A));
-      const mxWrap = document.createElement('div');
-      const targetSquads = state.insightSquad === 'all' ? state.data.squads : [state.insightSquad];
-      for (const s of targetSquads) {
-        const html = squadAgentMatrix(s, A, 'call');
-        if (html) mxWrap.insertAdjacentHTML('beforeend', html);
-      }
-      if (mxWrap.children.length) main.appendChild(mxWrap);
-    }
+    main.appendChild(panel);   // 스쿼드별 응답률 표 — 지표는 render()가 하단에 붙임
     return;
   }
 
@@ -1066,9 +1062,6 @@ function aggAgentChatTrend(rows, A, B, agent) {
 function renderComplaint(main) {
   const rows = (state.data.complaint) || [];
   const A = state.periodA, B = state.periodB;
-  // 지표 토글 + 패널
-  main.appendChild(insightsToggle());
-  if (state.showInsights) main.appendChild(insightsPanel('complaint', '', A));
   if (!rows.length) {
     const e = document.createElement('div');
     e.className = 'empty';
@@ -1208,10 +1201,6 @@ function complaintTable(title, aMap, bMap) {
 function renderVoc(main) {
   const voc = state.data.voc || { chat: [], call: [] };
   const A = state.periodA, B = state.periodB;
-
-  // 지표 토글 + 패널
-  main.appendChild(insightsToggle());
-  if (state.showInsights) main.appendChild(insightsPanel('vocstat', '', A));
 
   // 채널 토글
   main.appendChild(vocChannelToggle());
