@@ -608,18 +608,11 @@ function renderCall(main) {
     return;
   }
 
-  // 지표 토글 + 패널 (모든 view 공통, agent view에서 개인 진입 시 제외)
-  main.appendChild(insightsToggle());
-  if (state.showInsights && !(state.view === 'agent' && state.agent)) {
-    main.appendChild(insightsPanel('call', state.view, A));
-    if (state.view === 'squad') {
-      const mxWrap = document.createElement('div');
-      const targetSquads = state.insightSquad === 'all' ? state.data.squads : [state.insightSquad];
-      for (const s of targetSquads) {
-        const html = squadAgentMatrix(s, A, 'call');
-        if (html) mxWrap.insertAdjacentHTML('beforeend', html);
-      }
-      if (mxWrap.children.length) main.appendChild(mxWrap);
+  // 지표 토글 + 패널 (squad view는 하단에 별도 배치 — 스쿼드별 응답률 표를 먼저 보여줌)
+  if (state.view !== 'squad') {
+    main.appendChild(insightsToggle());
+    if (state.showInsights && !(state.view === 'agent' && state.agent)) {
+      main.appendChild(insightsPanel('call', state.view, A));
     }
   }
 
@@ -669,7 +662,20 @@ function renderCall(main) {
       rows,
     );
     bindSquadToggle(panel);
-    main.appendChild(panel);
+    main.appendChild(panel);   // 1번: 스쿼드별 응답률 표를 맨 위에
+
+    // 지표 + 개인별 매트릭스 — 제일 하단에 배치
+    main.appendChild(insightsToggle());
+    if (state.showInsights) {
+      main.appendChild(insightsPanel('call', 'squad', A));
+      const mxWrap = document.createElement('div');
+      const targetSquads = state.insightSquad === 'all' ? state.data.squads : [state.insightSquad];
+      for (const s of targetSquads) {
+        const html = squadAgentMatrix(s, A, 'call');
+        if (html) mxWrap.insertAdjacentHTML('beforeend', html);
+      }
+      if (mxWrap.children.length) main.appendChild(mxWrap);
+    }
     return;
   }
 
@@ -1472,7 +1478,7 @@ function insightsPanel(type, view, A) {
     const s = new Date(A.start), e = new Date(A.end);
     return Math.round((e - s) / 86400000) + 1;
   })();
-  const periodLabel = dayCount > 1 ? `${dayCount}일 누적 데이터` : `1일 데이터`;
+  const periodLabel = dayCount > 1 ? `${A.start}~${A.end}, ${dayCount}일 누적` : `${A.start}`;
 
   // 스쿼드 탭 (squad/agent view에서만 표시)
   if (view === 'squad' || view === 'agent') {
@@ -1794,7 +1800,7 @@ function squadAgentMatrix(squad, A, mode /* 'call' | 'chat' */) {
   }).join('');
   return `
     <div class="ins-matrix">
-      <h4>📋 ${squad} 개인별 ${mode === 'call' ? '수신연결' : '응대량'} 일자 매트릭스</h4>
+      <h4>📋 ${squad}스쿼드 개인별 성과 요약</h4>
       <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
       <small class="ins-legend">숫자: ${mode === 'call' ? '수신연결' : '채팅 응대'} 건수 · "${mode === 'call' ? '채팅' : '콜'}": 그 날 ${mode === 'call' ? '채팅' : '콜'} 포지션 · "-": 활동 없음(휴가·야간·휴무 포함)</small>
     </div>`;
