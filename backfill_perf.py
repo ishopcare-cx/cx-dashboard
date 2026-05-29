@@ -19,6 +19,8 @@ from transform import KST
 from transform_call import agent_state_row, callraw_time_row
 from sync_perf_sheet import _append, _fmt_date, _table_info
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",

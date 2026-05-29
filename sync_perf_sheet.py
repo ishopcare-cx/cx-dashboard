@@ -15,6 +15,8 @@ from google_credentials import build_credentials
 from sheets import Sheet, _col_letter
 from transform import KST
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
