@@ -120,6 +120,20 @@ const ymd = d => {
   return `${y}-${m}-${dy}`;
 };
 
+// 'YYYY-MM-DD' → '2026년05월 25일(일요일)'
+const WEEKDAYS_KO = ['일', '월', '화', '수', '목', '금', '토'];
+function fmtDateKo(s) {
+  if (!s) return '';
+  const [y, m, dy] = s.split('-');
+  const w = WEEKDAYS_KO[new Date(s).getDay()];
+  return `${y}년${m}월 ${dy}일(${w}요일)`;
+}
+// 단일일이면 한 날짜, 여러 날이면 시작~끝
+function periodLabelKo(p) {
+  if (!p.start || !p.end) return '';
+  return p.start === p.end ? fmtDateKo(p.start) : `${fmtDateKo(p.start)} ~ ${fmtDateKo(p.end)}`;
+}
+
 function setPreset(p) {
   const today = new Date();
   if (p === '7d' || p === '14d') {
@@ -759,7 +773,8 @@ function cardsChat(a, b, isMedian, singleAgent) {
   } else {
     cards.push({ label: '응대건수', value: fmtNum(a.응대), prev: fmtNum(b.응대), d: delta(a.응대, b.응대) });
   }
-  const tLabel = isMedian ? ' (중앙값)' : ' (평균)';
+  const singleDay = state.periodA.start && state.periodA.start === state.periodA.end;
+  const tLabel = isMedian ? ' (중앙값)' : (singleDay ? '' : ' (평균)');
   cards.push({ label: '첫응대' + tLabel, value: fmtSec(a.첫응대), prev: fmtSec(b.첫응대), d: delta(a.첫응대, b.첫응대), invert: true });
   cards.push({ label: '응답시간' + tLabel, value: fmtSec(a.응답), prev: fmtSec(b.응답), d: delta(a.응답, b.응답), invert: true });
   cards.push({ label: '처리시간' + tLabel, value: fmtSec(a.처리), prev: fmtSec(b.처리), d: delta(a.처리, b.처리), invert: true });
@@ -1467,7 +1482,9 @@ function insightsPanel(type, view, A) {
     const s = new Date(A.start), e = new Date(A.end);
     return Math.round((e - s) / 86400000) + 1;
   })();
-  const periodLabel = dayCount > 1 ? `${A.start}~${A.end}, ${dayCount}일 누적` : `${A.start}`;
+  const single = dayCount === 1;          // 단일일 선택
+  const periodTerm = single ? '당일' : '기간';
+  const periodLabel = periodLabelKo(A);
 
   // 스쿼드 탭 (squad/agent view에서만 표시)
   if (view === 'squad' || view === 'agent') {
@@ -1478,12 +1495,15 @@ function insightsPanel(type, view, A) {
     const teamA = aggChatTeam(d.chat.by_date, A);
     if (view === 'all') {
       title = '채팅 전체 지표';
-      lines.push({ html: `주간 총 응대 건수: <b>${fmtNum(teamA.응대)}</b> (${periodLabel})` });
-      lines.push({ html: `평균 첫응대 / 응답 / 처리 (팀 평균): <b>${fmtSec(teamA.첫응대)}</b> / <b>${fmtSec(teamA.응답)}</b> / <b>${fmtSec(teamA.처리)}</b>` });
-      const inA = d.chat.by_date.filter(r => inRange(r.date, A));
-      if (inA.length) {
-        const busiest = inA.reduce((m, r) => (r['응대'] || 0) > (m['응대'] || 0) ? r : m, inA[0]);
-        lines.push({ html: `가장 바쁜 날: <b>${busiest.date}</b> (${fmtNum(busiest['응대'])}건)` });
+      lines.push({ html: `${periodTerm} 총 응대 건수: <b>${fmtNum(teamA.응대)}</b> (${periodLabel})` });
+      lines.push({ html: `${single ? '' : '평균 '}첫응대 / 응답 / 처리 (팀${single ? '' : ' 평균'}): <b>${fmtSec(teamA.첫응대)}</b> / <b>${fmtSec(teamA.응답)}</b> / <b>${fmtSec(teamA.처리)}</b>` });
+      // 가장 바쁜 날은 여러 날 선택 시에만 의미 있음 (단일일 제외)
+      if (!single) {
+        const inA = d.chat.by_date.filter(r => inRange(r.date, A));
+        if (inA.length) {
+          const busiest = inA.reduce((m, r) => (r['응대'] || 0) > (m['응대'] || 0) ? r : m, inA[0]);
+          lines.push({ html: `가장 바쁜 날: <b>${busiest.date}</b> (${fmtNum(busiest['응대'])}건)` });
+        }
       }
     } else if (view === 'squad') {
       title = isSquadOnly ? `${sqLabel} 채팅 지표` : '스쿼드별 채팅 지표';
@@ -1492,7 +1512,7 @@ function insightsPanel(type, view, A) {
         const active = countActiveAvgChat(d.chat.agent_chats, A, { squad: sq });
         const names = listActiveAgentsChat(d.chat.agent_chats, A, { squad: sq });
         const throughput = active ? (m.응대 / active) : null;
-        lines.push({ html: `<b>${sqLabel}</b> 주간 총 응대: <b>${fmtNum(m.응대)}</b>건 (${periodLabel})` });
+        lines.push({ html: `<b>${sqLabel}</b> ${periodTerm} 총 응대: <b>${fmtNum(m.응대)}</b>건 (${periodLabel})` });
         lines.push({ html: `활성 상담사 평균: <b>${active ? active.toFixed(1) : '0'}명</b>/일 · 처리량: <b>${throughput == null ? '-' : throughput.toFixed(1)}</b>건/명` });
         lines.push({ html: `시간 지표 (중앙값) — 첫응대: <b>${fmtSec(m.첫응대)}</b> · 응답: <b>${fmtSec(m.응답)}</b> · 처리: <b>${fmtSec(m.처리)}</b>` });
         // 그 스쿼드 안 상위/하위 상담사
@@ -1506,7 +1526,7 @@ function insightsPanel(type, view, A) {
       } else {
         const rows = squadAggChatRows(A);
         const total = rows.reduce((s, r) => s + r.응대, 0);
-        lines.push({ html: `주간 총 응대 건수: <b>${fmtNum(total)}</b> (${periodLabel})` });
+        lines.push({ html: `${periodTerm} 총 응대 건수: <b>${fmtNum(total)}</b> (${periodLabel})` });
         if (rows.length) {
           const top = rows[0], bot = rows[rows.length - 1];
           const topPct = total ? (top.응대 / total * 100) : 0;
@@ -1520,7 +1540,7 @@ function insightsPanel(type, view, A) {
       if (isSquadOnly) agentsA = agentsA.filter(r => r.squad === sq);
       const total = agentsA.reduce((s, r) => s + r.cnt, 0);
       const active = agentsA.filter(r => r.cnt >= CHAT_ACTIVE_THRESHOLD);
-      lines.push({ html: `${isSquadOnly ? `<b>${sqLabel}</b> ` : ''}주간 총 응대: <b>${fmtNum(total)}</b> (${periodLabel}) · 활성 상담사(≥${CHAT_ACTIVE_THRESHOLD}/일 누적) <b>${active.length}명</b>` });
+      lines.push({ html: `${isSquadOnly ? `<b>${sqLabel}</b> ` : ''}${periodTerm} 총 응대: <b>${fmtNum(total)}</b> (${periodLabel}) · 활성 상담사(≥${CHAT_ACTIVE_THRESHOLD}/일 누적) <b>${active.length}명</b>` });
       if (agentsA.length) {
         agentsA.sort((a, b) => b.cnt - a.cnt);
         const top = agentsA[0], bot = agentsA[agentsA.length - 1];
@@ -1533,7 +1553,7 @@ function insightsPanel(type, view, A) {
     if (view === 'all') {
       title = '콜 전체 지표';
       const t = aggCallTeam(d.call.team_by_date, A);
-      lines.push({ html: `주간 총 인입: <b>${fmtNum(t.총인입)}</b> / 총 연결시도: <b>${fmtNum(t.연결시도)}</b> / 응대(연결성공): <b>${fmtNum(t.연결성공)}</b> (${periodLabel})` });
+      lines.push({ html: `${periodTerm} 총 인입: <b>${fmtNum(t.총인입)}</b> / 총 연결시도: <b>${fmtNum(t.연결시도)}</b> / 응대(연결성공): <b>${fmtNum(t.연결성공)}</b> (${periodLabel})` });
       lines.push({ html: `평균 응답률: <b class="${rateColorClass(t.응답률)}">${fmtPct(t.응답률)}</b> ${rateBadge(t.응답률)}`, status: rateStatus(t.응답률) });
       lines.push({ html: `평균 대기: <b>${fmtSec(t.평균대기)}</b> · 평균 통화: <b>${fmtSec(t.평균통화)}</b>` });
       lines.push({ html: `포기 호수: <b class="ins-warn">${fmtNum(t.연결포기)}</b>` });
@@ -1549,7 +1569,7 @@ function insightsPanel(type, view, A) {
         const active = countActiveAvg(d.call.agent_by_date, A, { squad: sq });
         const names = listActiveAgents(d.call.agent_by_date, A, { squad: sq });
         const rate = (stdA && active) ? (m.수신연결 / active) / stdA * 100 : null;
-        lines.push({ html: `주간 총 인입(팀): <b>${fmtNum(teamSums.총인입)}</b> · <b>${sqLabel}</b> 총 수신연결: <b>${fmtNum(m.수신연결)}</b> (${periodLabel})` });
+        lines.push({ html: `${periodTerm} 총 인입(팀): <b>${fmtNum(teamSums.총인입)}</b> · <b>${sqLabel}</b> 총 수신연결: <b>${fmtNum(m.수신연결)}</b> (${periodLabel})` });
         lines.push({ html: `<b>${sqLabel}</b> 평균 응답률: <b class="${rateColorClass(rate)}">${fmtPct(rate)}</b> ${rateBadge(rate)}`, status: rateStatus(rate) });
         lines.push({ html: `활성 상담사 평균: <b>${active ? active.toFixed(1) : '0'}명</b>/일 · 평균통화: <b>${fmtSec(m.평균통화)}</b> · 발신연결: <b>${fmtNum(m.발신연결)}</b>` });
         // 그 스쿼드 안 상위/하위
@@ -1568,7 +1588,7 @@ function insightsPanel(type, view, A) {
         if (names.length) lines.push({ html: `활성자 명단: ${names.join(', ')}` });
       } else {
         const squads = squadAggCallRows(A, stdA);
-        lines.push({ html: `주간 총 인입: <b>${fmtNum(teamSums.총인입)}</b> · 총 수신연결: <b>${fmtNum(teamSums.연결성공)}</b> (${periodLabel})` });
+        lines.push({ html: `${periodTerm} 총 인입: <b>${fmtNum(teamSums.총인입)}</b> · 총 수신연결: <b>${fmtNum(teamSums.연결성공)}</b> (${periodLabel})` });
         if (squads.length) {
           const validRates = squads.filter(s => s.응답률 != null).map(s => s.응답률);
           const avgRate = validRates.length ? validRates.reduce((a, b) => a + b, 0) / validRates.length : null;
@@ -1594,7 +1614,7 @@ function insightsPanel(type, view, A) {
       if (isSquadOnly) rows = rows.filter(r => r.squad === sq);
       const active = rows.filter(r => r.active);
       const sqActive = isSquadOnly ? countActiveAvg(d.call.agent_by_date, A, { squad: sq }) : totalActiveA;
-      lines.push({ html: `${isSquadOnly ? `<b>${sqLabel}</b> ` : ''}주간 총 인입: <b>${fmtNum(t.총인입)}</b> · 총 수신연결: <b>${fmtNum(t.연결성공)}</b> · 활성 상담사 평균 <b>${sqActive.toFixed(1)}명</b>/일` });
+      lines.push({ html: `${isSquadOnly ? `<b>${sqLabel}</b> ` : ''}${periodTerm} 총 인입: <b>${fmtNum(t.총인입)}</b> · 총 수신연결: <b>${fmtNum(t.연결성공)}</b> · 활성 상담사 평균 <b>${sqActive.toFixed(1)}명</b>/일` });
       if (stdA) lines.push({ html: `1인당 표준 시도: <b>${stdA.toFixed(1)}건</b>` });
       if (active.length) {
         active.sort((a, b) => (b.응답률 ?? -1) - (a.응답률 ?? -1));
@@ -1620,7 +1640,7 @@ function insightsPanel(type, view, A) {
     const sorted = Object.entries(agg).sort((a, b) => b[1] - a[1]);
     const chatCnt = Object.values(aggVoc(voc.chat, A)).reduce((s, v) => s + v, 0);
     const callCnt = Object.values(aggVoc(voc.call, A)).reduce((s, v) => s + v, 0);
-    lines.push({ html: `주간 총 VOC: <b>${fmtNum(total)}</b>건 (${periodLabel})` });
+    lines.push({ html: `${periodTerm} 총 VOC: <b>${fmtNum(total)}</b>건 (${periodLabel})` });
     lines.push({ html: `채널 비중: 채팅 <b>${fmtNum(chatCnt)}</b> / 콜 <b>${fmtNum(callCnt)}</b>` });
     if (sorted.length) {
       const [topKey, topCnt] = sorted[0];
@@ -1642,7 +1662,7 @@ function insightsPanel(type, view, A) {
     if (!rows.length || totType === 0) {
       lines.push({ html: '<i>민원 데이터 없음</i>' });
     } else {
-      lines.push({ html: `주간 민원 건수: <b>${fmtNum(totType)}</b> · <b>${agg.dayCount}일</b> 매칭` });
+      lines.push({ html: `${periodTerm} 민원 건수: <b>${fmtNum(totType)}</b> · <b>${agg.dayCount}일</b> 매칭` });
       const topT = topKey(agg.type);
       lines.push({ html: `주요 유형: <b class="ins-warn">${topT}</b>` });
       const topR = topKey(agg.reward);
