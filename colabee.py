@@ -99,15 +99,32 @@ class Colabee:
             rows.append(cells)
         return rows
 
-    def fetch_agent_daily(self):
-        """CTI 통계 > 상담원별통계 > 일별 통계 표 (오늘 분).
+    def fetch_agent_daily(self, date=None):
+        """CTI 통계 > 상담원별통계 > 일별 통계 표.
 
+        date=None이면 오늘 분(기본). 'YYYY-MM-DD' 주면 그 날짜로 조회(백필용).
         반환: [헤더행, 데이터행…, 소계·합계행]. 소계·합계는 호출측이 거른다.
         """
         self._click("CTI 통계")
         self._click("상담원별통계", settle_ms=2500)
         self._click("일별 통계", settle_ms=2500)
+        if date:
+            self._set_date_and_reload(date)
         return self._extract_first_table()
+
+    def _set_date_and_reload(self, date):
+        """dateFrom/dateTo(또는 date) 입력을 date로 맞추고 #reload 클릭."""
+        self._page.evaluate("""(d) => {
+            for (const id of ['dateFrom', 'dateTo', 'date', 'statDate']) {
+                const el = document.getElementById(id);
+                if (!el) continue;
+                if (el._flatpickr) el._flatpickr.setDate(d, true);
+                else { el.value = d; el.dispatchEvent(new Event('change', {bubbles: true})); }
+            }
+        }""", date)
+        self._page.wait_for_timeout(500)
+        self._page.evaluate("const b=document.getElementById('reload'); if(b) b.click();")
+        self._page.wait_for_timeout(3000)
 
     def fetch_recv_daily(self):
         """IPPBX 통계 > 수신통계 > 일별 분류 표 (당월 전체).
