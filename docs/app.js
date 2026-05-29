@@ -1791,6 +1791,22 @@ function squadAgentMatrix(squad, A, mode /* 'call' | 'chat' */) {
     const k = `${r.date}|${r.agent}`;
     chatCnt[k] = (chatCnt[k] || 0) + 1;
   }
+  // 콜 응답률 분모 — 일자별 1인당 표준시도 = 그날 팀 연결시도 ÷ 그날 전체 활성자 수
+  const stdByDate = {};
+  if (mode === 'call') {
+    const attemptsByDate = {}, activeByDate = {};
+    for (const r of d.call.team_by_date) {
+      if (inRange(r.date, A)) attemptsByDate[r.date] = (r['연결시도'] || 0);
+    }
+    for (const r of d.call.agent_by_date) {
+      if (!inRange(r.date, A)) continue;
+      if ((r['수신연결'] || 0) >= CALL_ACTIVE_THRESHOLD) activeByDate[r.date] = (activeByDate[r.date] || 0) + 1;
+    }
+    for (const dt of dateList) {
+      const at = attemptsByDate[dt] || 0, ac = activeByDate[dt] || 0;
+      stdByDate[dt] = ac ? at / ac : null;
+    }
+  }
   // 표 그리기
   const head = ['상담원명', ...dateList.map(fmtDateShort)].map(h => `<th>${h}</th>`).join('');
   const body = agentList.map(name => {
@@ -1800,7 +1816,16 @@ function squadAgentMatrix(squad, A, mode /* 'call' | 'chat' */) {
       const ch = chatCnt[k] || 0;
       let cell, cls = '';
       if (mode === 'call') {
-        if (cc >= 1) { cell = fmtNum(cc); cls = cc >= CALL_ACTIVE_THRESHOLD ? 'mx-active' : 'mx-low'; }
+        if (cc >= 1) {
+          cls = cc >= CALL_ACTIVE_THRESHOLD ? 'mx-active' : 'mx-low';
+          // 활성 셀엔 응답률 병기 (수신연결 ÷ 그날 표준시도)
+          if (cc >= CALL_ACTIVE_THRESHOLD && stdByDate[dt]) {
+            const rate = cc / stdByDate[dt] * 100;
+            cell = `${fmtNum(cc)}<br><span style="font-size:.85em;color:var(--muted);font-weight:400">${rate.toFixed(1)}%</span>`;
+          } else {
+            cell = fmtNum(cc);
+          }
+        }
         else if (ch >= CHAT_ACTIVE_THRESHOLD) { cell = '채팅'; cls = 'mx-chat'; }
         else cell = '-';
       } else {
@@ -1817,7 +1842,7 @@ function squadAgentMatrix(squad, A, mode /* 'call' | 'chat' */) {
     <div class="ins-matrix">
       <h4>📋 ${squad}스쿼드 개인별 성과 요약</h4>
       <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-      <small class="ins-legend">숫자: ${mode === 'call' ? '수신연결' : '채팅 응대'} 건수 · "${mode === 'call' ? '채팅' : '콜'}": 그 날 ${mode === 'call' ? '채팅' : '콜'} 포지션 · "-": 활동 없음(휴가·야간·휴무 포함)</small>
+      <small class="ins-legend">숫자: ${mode === 'call' ? '수신연결 건수 (활성 시 응답률 병기)' : '채팅 응대 건수'} · "${mode === 'call' ? '채팅' : '콜'}": 그 날 ${mode === 'call' ? '채팅' : '콜'} 포지션 · "-": 활동 없음(휴가·야간·휴무 포함)</small>
     </div>`;
 }
 
