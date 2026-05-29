@@ -12,7 +12,7 @@ import sys
 
 import config
 from google_credentials import build_credentials
-from sheets import Sheet
+from sheets import Sheet, _col_letter
 from transform import KST
 
 logging.basicConfig(
@@ -29,33 +29,47 @@ def _read(sheet, tab):
     return resp.get("values", [])
 
 
-def _existing_keys(perf, tab):
-    """CX 탭의 기존 (col0|col1) 키 집합 — col0=일자/기간, col1=상담원ID."""
+def _fmt_date(iso):
+    """'2026-05-28' → '2026. 5. 28' (시트 기존 표기와 동일, 앞자리 0 없음)."""
+    y, m, d = iso.split("-")
+    return f"{int(y)}. {int(m)}. {int(d)}"
+
+
+def _table_info(perf, tab):
+    """CX 탭의 (헤더 시작 열 offset, 기존 (날짜|상담원ID) 키 집합).
+
+    데이터가 A가 아닌 B열부터 시작할 수 있어, 헤더 첫 비어있지 않은 셀로 offset 감지.
+    반환 None이면 읽기 실패(안전상 적재 생략).
+    """
     try:
         rows = _read(perf, tab)
     except Exception as e:
         log.warning("'%s' 읽기 실패 — %s", tab, e)
         return None
+    if not rows:
+        return 0, set()
+    header = rows[0]
+    off = next((i for i, c in enumerate(header) if (c or "").strip()), 0)
     keys = set()
-    for r in rows[1:]:           # 0행=헤더
-        if len(r) >= 2 and r[0] and r[1]:
-            keys.add(f"{r[0]}|{r[1]}")
-    return keys
+    for r in rows[1:]:
+        if len(r) > off + 1 and (r[off] or "").strip() and (r[off + 1] or "").strip():
+            keys.add(f"{r[off]}|{r[off + 1]}")
+    return off, keys
 
 
-def _append(perf, tab, rows):
+def _append(perf, tab, rows, off):
     perf._api.values().append(
-        spreadsheetId=perf._id, range=f"'{tab}'!A1",
+        spreadsheetId=perf._id, range=f"'{tab}'!{_col_letter(off)}1",
         valueInputOption="USER_ENTERED",
         insertDataOption="INSERT_ROWS",
         body={"values": rows}).execute()
 
 
-def _sync(warehouse, perf, src_tab, dst_tab, date, slice_from):
+def _sync(warehouse, perf, src_tab, dst_tab, date):
     """warehouse src_tab에서 date행만 골라 dst_tab에 신규만 append.
 
-    slice_from: 창고 행에서 CX 탭 컬럼이 시작하는 인덱스(=일자 컬럼). 2.
-    창고 헤더: [키, 수집일시, 일자, 상담원ID, ...] → CX는 일자부터.
+    창고 헤더: [키, 수집일시, 일자, 상담원ID, …] → CX 탭은 일자(=날짜)부터.
+    날짜는 시트 형식('2026. 5. 28')으로, 데이터 시작 열도 시트에 맞춰 정렬.
     """
     src = _read(warehouse, src_tab)
     if len(src) < 2:
@@ -63,25 +77,25 @@ def _sync(warehouse, perf, src_tab, dst_tab, date, slice_from):
         return
     out = []
     for r in src[1:]:
-        if len(r) <= slice_from + 1:
+        if len(r) < 4 or (r[2] or "").strip() != date:   # 창고 col2 = 일자(ISO)
             continue
-        if (r[2] or "").strip() != date:   # 창고 col2 = 일자
-            continue
-        out.append([(c if c is not None else "") for c in r[slice_from:]])
+        # CX 행 = [날짜(시트형식), 상담원ID, …] = 창고 r[3:] 앞에 날짜
+        out.append([_fmt_date(date)] + [(c if c is not None else "") for c in r[3:]])
     if not out:
         log.info("'%s' — %s 데이터 없음", src_tab, date)
         return
-    existing = _existing_keys(perf, dst_tab)
-    if existing is None:
-        log.warning("'%s' 기존 키 조회 실패 — 안전을 위해 적재 생략", dst_tab)
+    info = _table_info(perf, dst_tab)
+    if info is None:
+        log.warning("'%s' 조회 실패 — 안전을 위해 적재 생략", dst_tab)
         return
+    off, existing = info
     fresh = [row for row in out if f"{row[0]}|{row[1]}" not in existing]
     if not fresh:
         log.info("'%s' — %s 이미 기록됨(중복 없음)", dst_tab, date)
         return
-    _append(perf, dst_tab, fresh)
-    log.info("'%s' ← %s: %d행 추가 (전체 %d행 중 신규)",
-             dst_tab, src_tab, len(fresh), len(out))
+    _append(perf, dst_tab, fresh, off)
+    log.info("'%s'(열 %s~) ← %s: %d행 추가 (전체 %d행 중 신규)",
+             dst_tab, _col_letter(off), src_tab, len(fresh), len(out))
 
 
 def main():
@@ -91,8 +105,8 @@ def main():
     creds = build_credentials()
     warehouse = Sheet(creds, config.SHEET_ID)
     perf = Sheet(creds, config.PERF_SHEET_ID)
-    _sync(warehouse, perf, "callraw_time", config.PERF_TIME_TAB, yesterday, 2)
-    _sync(warehouse, perf, "callraw_acw", config.PERF_ACW_TAB, yesterday, 2)
+    _sync(warehouse, perf, "callraw_time", config.PERF_TIME_TAB, yesterday)
+    _sync(warehouse, perf, "callraw_acw", config.PERF_ACW_TAB, yesterday)
     log.info("연동 완료")
 
 
