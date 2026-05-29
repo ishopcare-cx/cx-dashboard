@@ -1517,6 +1517,15 @@ function insightsPanel(type, view, A) {
         lines.push({ html: `<b>${sqLabel}</b> ${periodTerm} 총 응대: <b>${fmtNum(m.응대)}</b>건 (${periodLabel})` });
         lines.push({ html: `활성 상담사 평균: <b>${active ? active.toFixed(1) : '0'}명</b>/일 · 처리량: <b>${throughput == null ? '-' : throughput.toFixed(1)}</b>건/명` });
         lines.push({ html: `시간 지표 (중앙값) — 첫응대: <b>${fmtSec(m.첫응대)}</b> · 응답: <b>${fmtSec(m.응답)}</b> · 처리: <b>${fmtSec(m.처리)}</b>` });
+        // 상담사별 편차 — 활성자(태그 ≥THRESHOLD/일 누적)만
+        const inSq = collectAgentChatCounts(d.chat.agent_chats, A)
+          .filter(r => r.squad === sq && r.cnt >= CHAT_ACTIVE_THRESHOLD);
+        if (inSq.length >= 2) {
+          inSq.sort((a, b) => b.cnt - a.cnt);
+          const top = inSq[0], bot = inSq[inSq.length - 1];
+          const diff = top.cnt - bot.cnt;
+          lines.push({ html: `최상위 <b class="ins-good">${top.name} ${fmtNum(top.cnt)}건</b> ↔ 최하위 <b class="ins-warn">${bot.name} ${fmtNum(bot.cnt)}건</b> (편차 <b>${fmtNum(diff)}건</b>)` });
+        }
       } else {
         const rows = squadAggChatRows(A);
         const total = rows.reduce((s, r) => s + r.응대, 0);
@@ -1535,6 +1544,16 @@ function insightsPanel(type, view, A) {
       const total = agentsA.reduce((s, r) => s + r.cnt, 0);
       const active = agentsA.filter(r => r.cnt >= CHAT_ACTIVE_THRESHOLD);
       lines.push({ html: `${isSquadOnly ? `<b>${sqLabel}</b> ` : ''}${periodTerm} 총 응대: <b>${fmtNum(total)}</b> (${periodLabel}) · 활성 상담사(≥${CHAT_ACTIVE_THRESHOLD}/일 누적) <b>${active.length}명</b>` });
+      // 상담사별 편차 — 활성자만
+      if (active.length >= 2) {
+        const sorted = [...active].sort((a, b) => b.cnt - a.cnt);
+        const top = sorted[0], bot = sorted[sorted.length - 1];
+        const diff = top.cnt - bot.cnt;
+        lines.push({
+          html: `최상위 <b class="ins-good">${top.name} ${fmtNum(top.cnt)}건</b> ↔ 최하위 <b class="ins-warn">${bot.name} ${fmtNum(bot.cnt)}건</b> (편차 <b>${fmtNum(diff)}건</b>)`,
+          status: diff > top.cnt * 0.5 ? 'warn' : 'good',
+        });
+      }
     }
   } else if (type === 'call') {
     if (view === 'all') {
@@ -1558,6 +1577,20 @@ function insightsPanel(type, view, A) {
         lines.push({ html: `${periodTerm} 총 인입(팀): <b>${fmtNum(teamSums.총인입)}</b> · <b>${sqLabel}</b> 총 수신연결: <b>${fmtNum(m.수신연결)}</b> (${periodLabel})` });
         lines.push({ html: `<b>${sqLabel}</b> 평균 응답률: <b class="${rateColorClass(rate)}">${fmtPct(rate)}</b> ${rateBadge(rate)}`, status: rateStatus(rate) });
         lines.push({ html: `활성 상담사 평균: <b>${active ? active.toFixed(1) : '0'}명</b>/일 · 평균통화: <b>${fmtSec(m.평균통화)}</b> · 발신연결: <b>${fmtNum(m.발신연결)}</b>` });
+        // 상담사별 편차 — 활성자(수신연결 ≥THRESHOLD)만
+        const inSq = collectCallAgentDetail(d.call.agent_by_date, A, stdA)
+          .filter(r => r.squad === sq && r.active);
+        if (inSq.length >= 2) {
+          inSq.sort((a, b) => (b.응답률 ?? -1) - (a.응답률 ?? -1));
+          const top = inSq[0], bot = inSq[inSq.length - 1];
+          if (top.응답률 != null && bot.응답률 != null) {
+            const gap = top.응답률 - bot.응답률;
+            lines.push({
+              html: `최상위 <b class="ins-good">${top.name} ${top.응답률.toFixed(1)}%</b> ↔ 최하위 <b class="ins-warn">${bot.name} ${bot.응답률.toFixed(1)}%</b> (편차 <b>${gap.toFixed(1)}%p</b>) ${gap > 15 ? '⚠️' : ''}`,
+              status: gap > 15 ? 'warn' : 'good',
+            });
+          }
+        }
       } else {
         const squads = squadAggCallRows(A, stdA);
         lines.push({ html: `${periodTerm} 총 인입: <b>${fmtNum(teamSums.총인입)}</b> · 총 수신연결: <b>${fmtNum(teamSums.연결성공)}</b> (${periodLabel})` });
@@ -1585,6 +1618,21 @@ function insightsPanel(type, view, A) {
       const sqActive = isSquadOnly ? countActiveAvg(d.call.agent_by_date, A, { squad: sq }) : totalActiveA;
       lines.push({ html: `${isSquadOnly ? `<b>${sqLabel}</b> ` : ''}${periodTerm} 총 인입: <b>${fmtNum(t.총인입)}</b> · 총 수신연결: <b>${fmtNum(t.연결성공)}</b> · 활성 상담사 평균 <b>${sqActive.toFixed(1)}명</b>/일` });
       if (stdA) lines.push({ html: `1인당 표준 시도: <b>${stdA.toFixed(1)}건</b>` });
+      // 상담사별 편차 — 활성자(수신연결 ≥THRESHOLD)만
+      let rows = collectCallAgentDetail(d.call.agent_by_date, A, stdA);
+      if (isSquadOnly) rows = rows.filter(r => r.squad === sq);
+      const active = rows.filter(r => r.active);
+      if (active.length >= 2) {
+        active.sort((a, b) => (b.응답률 ?? -1) - (a.응답률 ?? -1));
+        const top = active[0], bot = active[active.length - 1];
+        if (top.응답률 != null && bot.응답률 != null) {
+          const gap = top.응답률 - bot.응답률;
+          lines.push({
+            html: `최상위 <b class="ins-good">${top.name} ${top.응답률.toFixed(1)}%</b> ↔ 최하위 <b class="ins-warn">${bot.name} ${bot.응답률.toFixed(1)}%</b> (편차 <b>${gap.toFixed(1)}%p</b>) ${gap > 15 ? '⚠️' : ''}`,
+            status: gap > 15 ? 'warn' : 'good',
+          });
+        }
+      }
     }
   } else if (type === 'vocstat') {
     title = 'VOC 지표';
