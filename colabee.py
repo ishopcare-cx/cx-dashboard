@@ -126,16 +126,47 @@ class Colabee:
         self._page.evaluate("const b=document.getElementById('reload'); if(b) b.click();")
         self._page.wait_for_timeout(3000)
 
-    def fetch_recv_daily(self):
-        """IPPBX 통계 > 수신통계 > 일별 분류 표 (당월 전체).
+    def fetch_recv_daily(self, year=None, month=None):
+        """IPPBX 통계 > 수신통계 > 일별 분류 표 (한 달 전체).
 
+        year/month 미지정이면 당월. 지정하면 그 달로 연/월 셀렉트를 맞춰
+        조회(월초 전월 보강·백필용). 페이지가 한 달치만 줘서, 월말 데이터는
+        그 달 안에 수집하거나 다음 달 초에 전월로 다시 긁어야 한다.
         반환: [헤더행, '1 일'…'31 일' 행, 소계·합계].
-        당월 데이터만 → 월말 누락 방지 위해 매일 수집.
         """
         self._click("IPPBX 통계")
         self._click("수신통계", settle_ms=2500)
         self._click("일별 분류", settle_ms=2500)
+        if year and month:
+            self._select_recv_month(year, month)
         return self._extract_first_table()
+
+    def _select_recv_month(self, year, month):
+        """수신통계 페이지의 연/월 셀렉트를 맞추고 조회 트리거.
+
+        #reload 우선, 없으면 '조회'/'검색' 버튼 클릭.
+        """
+        p = self._page
+        p.evaluate("""(ym) => {
+            const set = (name, val) => {
+                const el = document.querySelector(`select[name="${name}"]`);
+                if (!el) return;
+                el.value = val;
+                el.dispatchEvent(new Event('change', {bubbles: true}));
+            };
+            set('year', ym.y);
+            set('month', ym.m);
+        }""", {"y": str(year), "m": f"{int(month):02d}"})
+        p.wait_for_timeout(500)
+        p.evaluate("""() => {
+            const r = document.getElementById('reload');
+            if (r) { r.click(); return; }
+            for (const el of document.querySelectorAll('button,a,input[type=button],input[type=submit]')) {
+                const t = (el.innerText || el.value || '').trim();
+                if (t === '조회' || t === '검색') { el.click(); return; }
+            }
+        }""")
+        p.wait_for_timeout(3500)
 
     def fetch_counsel_stat(self, date):
         """상담 관리 > 상담통계 (id=COUNSEL_STAT) — 단일 날짜 분류별 집계.

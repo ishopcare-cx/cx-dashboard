@@ -34,6 +34,12 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+# 매 수집마다 오늘 포함 최근 (BACKFILL_DAYS+1)일을 재수집 → 주말·연휴·실패 갭 보강.
+# 평일 수집이라 보통 토·일 2일 갭 → 3이면 3일 연휴(화요일 첫 수집)까지 커버.
+BACKFILL_DAYS = 3
+# 월초 이 기간(일)엔 수신통계 전월분도 함께 수집 → 월말 주말 영구누락 방지.
+MONTH_OVERLAP_DAYS = 4
+
 
 def _credentials():
     """콜라비 자격증명 — 환경변수 우선, 없으면 colabee_local.json."""
@@ -57,58 +63,84 @@ def _credentials():
     return cfg
 
 
+def _window_dates(now):
+    """오늘 포함 최근 BACKFILL_DAYS+1일(과거→오늘 순) ISO 리스트.
+
+    수집이 평일만 돌아 주말·연휴·실패분이 빠지므로, 매 수집마다 최근 며칠을
+    재수집해 메운다. upsert(키 기준)라 재수집은 무해.
+    """
+    return [(now.date() - datetime.timedelta(days=i)).isoformat()
+            for i in range(BACKFILL_DAYS, -1, -1)]
+
+
+def _target_months(now):
+    """수집할 (year, month) 목록 — 당월 + (월초면) 전월.
+
+    수신통계가 '한 달치'만 줘서, 월말 데이터는 그 달 안에 못 잡으면 영구
+    누락된다(월 바뀌면 전월 표를 다시 못 봄). 월초 MONTH_OVERLAP_DAYS일간은
+    전월도 함께 긁어 월말 주말 누락을 막는다.
+    """
+    months = [(now.year, now.month)]
+    if now.day <= MONTH_OVERLAP_DAYS:
+        prev_last = now.replace(day=1) - datetime.timedelta(days=1)
+        months.insert(0, (prev_last.year, prev_last.month))
+    return months
+
+
 def main():
     cfg = _credentials()
     log.info("콜라비 전화 통계 수집 시작")
 
-    # 1) 스크랩
+    # 1) 스크랩 — 팀은 월 단위, 나머지는 최근 며칠 윈도우
     now = datetime.datetime.now(KST)
-    yesterday = (now.date() - datetime.timedelta(days=1)).isoformat()
-    today = now.date().isoformat()
-    with Colabee(cfg["base_url"], cfg["username"], cfg["password"]) as cb:
-        log.info("▶ 상담원별 일별 통계 페이지")
-        agent_table = cb.fetch_agent_daily()
-        log.info("  표 %d행 수신", len(agent_table))
-        log.info("▶ 수신통계 일별 분류 페이지")
-        team_table = cb.fetch_recv_daily()
-        log.info("  표 %d행 수신", len(team_table))
-        # 콜 VOC — 어제(확정) + 오늘(누적 스냅샷) 두 번 fetch.
-        # COUNSEL_STAT 표에 일자 컬럼이 없어 단일 날짜씩 호출.
-        log.info("▶ 상담통계(콜 VOC) 페이지 — %s", yesterday)
-        voc_y = cb.fetch_counsel_stat(yesterday)
-        log.info("  표 %d행 수신", len(voc_y))
-        log.info("▶ 상담통계(콜 VOC) 페이지 — %s", today)
-        voc_t = cb.fetch_counsel_stat(today)
-        log.info("  표 %d행 수신", len(voc_t))
-        # 상담원 상태 통계(후처리) — 어제·오늘. 실패해도 나머지 수집은 진행.
-        state_y = state_t = []
-        try:
-            log.info("▶ 상담원 상태 통계(후처리) — %s", yesterday)
-            state_y = cb.fetch_agent_state_stat(yesterday)
-            log.info("  표 %d행 수신", len(state_y))
-            log.info("▶ 상담원 상태 통계(후처리) — %s", today)
-            state_t = cb.fetch_agent_state_stat(today)
-            log.info("  표 %d행 수신", len(state_t))
-        except Exception as e:
-            log.warning("AGENT_STATE_STAT 수집 실패(후처리 생략) — %s", e)
+    dates = _window_dates(now)
+    months = _target_months(now)
+    log.info("대상 날짜=%s / 월=%s", dates,
+             ["%04d-%02d" % m for m in months])
 
-    # 2) 변환
-    year_month = now.strftime("%Y-%m")
-    agent_rows = [r for r in (agent_row(row, now) for row in agent_table)
-                  if r is not None]
-    team_rows = [r for r in (team_row(row, year_month, now) for row in team_table)
-                 if r is not None]
-    voc_rows = (
-        [r for r in (call_voc_row(row, yesterday, now) for row in voc_y) if r] +
-        [r for r in (call_voc_row(row, today, now) for row in voc_t) if r]
-    )
-    # raw 탭 — 콜/상담시간(원본 16열) + 후처리(AGENT_STATE_STAT)
-    time_rows = [r for r in (callraw_time_row(row, now) for row in agent_table)
-                 if r is not None]
-    acw_rows = (
-        [r for r in (agent_state_row(row, yesterday, now) for row in state_y) if r] +
-        [r for r in (agent_state_row(row, today, now) for row in state_t) if r]
-    )
+    team_table_by_month = {}
+    agent_tables, voc_tables, state_tables = {}, {}, {}
+    with Colabee(cfg["base_url"], cfg["username"], cfg["password"]) as cb:
+        # 팀(수신통계) — 당월 + (월초면) 전월
+        for (y, m) in months:
+            ym = "%04d-%02d" % (y, m)
+            cur = (y == now.year and m == now.month)
+            log.info("▶ 수신통계 일별 분류 — %s%s", ym, "" if cur else " (전월 보강)")
+            tbl = cb.fetch_recv_daily() if cur else cb.fetch_recv_daily(y, m)
+            log.info("  표 %d행 수신", len(tbl))
+            team_table_by_month[ym] = tbl
+
+        # 상담원별·콜 VOC·후처리 — 날짜별(과거→오늘). 후처리는 실패해도 진행.
+        for d in dates:
+            log.info("▶ 상담원별 일별 통계 — %s", d)
+            agent_tables[d] = cb.fetch_agent_daily(d)
+            log.info("  표 %d행 수신", len(agent_tables[d]))
+            log.info("▶ 상담통계(콜 VOC) — %s", d)
+            voc_tables[d] = cb.fetch_counsel_stat(d)
+            log.info("  표 %d행 수신", len(voc_tables[d]))
+            try:
+                log.info("▶ 상담원 상태 통계(후처리) — %s", d)
+                state_tables[d] = cb.fetch_agent_state_stat(d)
+                log.info("  표 %d행 수신", len(state_tables[d]))
+            except Exception as e:
+                log.warning("AGENT_STATE_STAT 수집 실패 — %s (%s)", d, e)
+                state_tables[d] = []
+
+    # 2) 변환 — 표의 첫 컬럼 일자가 대상일과 맞는 행만(엉뚱한 날짜 혼입 방지)
+    agent_rows, time_rows, voc_rows, acw_rows, team_rows = [], [], [], [], []
+    for ym, tbl in team_table_by_month.items():
+        team_rows += [r for r in (team_row(row, ym, now) for row in tbl)
+                      if r is not None]
+    for d in dates:
+        agent_rows += [r for r in (agent_row(row, now) for row in agent_tables[d])
+                       if r is not None and r[2] == d]
+        time_rows += [r for r in (callraw_time_row(row, now)
+                                  for row in agent_tables[d])
+                      if r is not None and r[2] == d]
+        voc_rows += [r for r in (call_voc_row(row, d, now)
+                                 for row in voc_tables[d]) if r]
+        acw_rows += [r for r in (agent_state_row(row, d, now)
+                                 for row in state_tables[d]) if r]
     log.info("변환: agent %d행 / team %d행 / voc %d행 / callraw_time %d / acw %d",
              len(agent_rows), len(team_rows), len(voc_rows),
              len(time_rows), len(acw_rows))
