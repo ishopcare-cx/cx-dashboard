@@ -1141,11 +1141,11 @@ function renderComplaint(main) {
   wrap.innerHTML = `
     <div class="panel" style="width:100%;">
       <h2>1번 기간 — 민원유형 분포</h2>
-      <div class="chart-wrap" style="height:380px;"><canvas id="pie-type"></canvas></div>
+      <div class="chart-wrap" style="height:440px;"><canvas id="pie-type"></canvas></div>
     </div>
     <div class="panel" style="width:100%;">
       <h2>1번 기간 — 보상 진행 분포</h2>
-      <div class="chart-wrap" style="height:380px;"><canvas id="pie-reward"></canvas></div>
+      <div class="chart-wrap" style="height:440px;"><canvas id="pie-reward"></canvas></div>
     </div>`;
   main.appendChild(wrap);
   setTimeout(() => {
@@ -1213,10 +1213,11 @@ function barChip(textColor, borderColor, opts = {}) {
 }
 
 // 파이 외부 라벨 + 지시선 + 조각 안 건수 (커스텀 플러그인)
+// 작은 조각이 몰려도 라벨이 겹치지 않게 좌/우 컬럼 정렬 + 위아래 자동 분산(안티콜리전).
 const pieOutLabels = {
   id: 'pieOutLabels',
   afterDatasetsDraw(chart) {
-    const { ctx } = chart;
+    const { ctx, chartArea } = chart;
     const meta = chart.getDatasetMeta(0);
     if (!meta || !meta.data.length) return;
     const ds = chart.data.datasets[0].data;
@@ -1224,35 +1225,64 @@ const pieOutLabels = {
     const total = ds.reduce((s, v) => s + v, 0);
     if (!total) return;
     const cx = meta.data[0].x, cy = meta.data[0].y;
+    const R = meta.data[0].outerRadius;  // 단일 데이터셋 — 모두 동일 반지름
+
     ctx.save();
+    // 라벨 항목 + 조각 안 건수
+    const items = [];
     meta.data.forEach((arc, i) => {
       const val = ds[i];
       if (!val) return;
-      const pct = val / total * 100;
       const ang = (arc.startAngle + arc.endAngle) / 2;
       const cos = Math.cos(ang), sin = Math.sin(ang);
-      const r = arc.outerRadius;
-      // 조각 안 건수
       ctx.font = "600 13px -apple-system,Pretendard,sans-serif";
       ctx.fillStyle = '#3a3f4a';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(val), cx + cos * r * 0.62, cy + sin * r * 0.62);
-      // 지시선
-      const x0 = cx + cos * r, y0 = cy + sin * r;
-      const x1 = cx + cos * (r + 16), y1 = cy + sin * (r + 16);
-      const right = cos >= 0;
-      const x2 = x1 + (right ? 26 : -26);
+      ctx.fillText(String(val), cx + cos * R * 0.62, cy + sin * R * 0.62);
+      items.push({
+        cos, sin, x0: cx + cos * R, y0: cy + sin * R,
+        idealY: cy + sin * (R + 16), right: cos >= 0,
+        name: labels[i], pct: (val / total * 100).toFixed(1) + '%',
+      });
+    });
+
+    // 좌/우로 나눠 라벨 y 충돌 해소 (위아래 분산)
+    const LH = 32;
+    const topB = (chartArea ? chartArea.top : 4) + 8;
+    const botB = (chartArea ? chartArea.bottom : chart.height) - 8;
+    ['right', 'left'].forEach((side) => {
+      const arr = items.filter((it) => it.right === (side === 'right'));
+      arr.sort((a, b) => a.idealY - b.idealY);
+      arr.forEach((it) => { it.labelY = it.idealY; });
+      for (let k = 1; k < arr.length; k++) {
+        if (arr[k].labelY < arr[k - 1].labelY + LH) arr[k].labelY = arr[k - 1].labelY + LH;
+      }
+      if (arr.length) {
+        const over = arr[arr.length - 1].labelY - botB;
+        if (over > 0) arr.forEach((it) => { it.labelY -= over; });
+        const under = topB - arr[0].labelY;
+        if (under > 0) arr.forEach((it) => { it.labelY += under; });
+      }
+    });
+
+    // 지시선 + 라벨 (이름·% 동일 14px). 좌/우 컬럼 정렬.
+    const colR = cx + R + 44, colL = cx - R - 44;
+    items.forEach((it) => {
+      const right = it.right;
+      const lx = right ? colR : colL;
+      const ex = lx + (right ? -8 : 8);
+      const mx = cx + it.cos * (R + 14), my = cy + it.sin * (R + 14);
       ctx.strokeStyle = '#b8bdc6'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineTo(x2, y1); ctx.stroke();
-      // 바깥 라벨 — 이름·% 동일 스타일(굵게 14px 진한 글씨)
-      const tx = x2 + (right ? 6 : -6);
+      ctx.beginPath();
+      ctx.moveTo(it.x0, it.y0); ctx.lineTo(mx, my); ctx.lineTo(ex, it.labelY);
+      ctx.stroke();
       ctx.textAlign = right ? 'left' : 'right';
       ctx.fillStyle = '#1f2937';
       ctx.font = "700 14px -apple-system,Pretendard,sans-serif";
       ctx.textBaseline = 'bottom';
-      ctx.fillText(labels[i], tx, y1 - 2);
+      ctx.fillText(it.name, lx, it.labelY - 1);
       ctx.textBaseline = 'top';
-      ctx.fillText(pct.toFixed(1) + '%', tx, y1 + 2);
+      ctx.fillText(it.pct, lx, it.labelY + 1);
     });
     ctx.restore();
   },
@@ -1285,8 +1315,8 @@ function drawPie(canvasId, dataObj, chartVar) {
     },
     options: {
       maintainAspectRatio: false,
-      radius: '60%',
-      layout: { padding: { top: 28, bottom: 28, left: 150, right: 150 } },
+      radius: '70%',
+      layout: { padding: { top: 24, bottom: 24, left: 130, right: 130 } },
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
@@ -1348,6 +1378,32 @@ function renderVoc(main) {
     { label: `VOC 총건수 (${chLabel})`, value: fmtNum(totalA), prev: fmtNum(totalB), d: delta(totalA, totalB) },
     { label: '상위 카테고리', value: topLabel, prev: '', d: null },
   ]));
+
+  // 파이 — VOC 대분류 분포 (이번 기간). 민원과 동일 스타일.
+  // 대분류가 많아(0%대 소분류 다수) 상위 8개 + '기타'로 묶어 깔끔하게.
+  const cat1Raw = {};
+  for (const k of Object.keys(aggA)) {
+    const c1 = k.split('​')[0] || '미분류';
+    cat1Raw[c1] = (cat1Raw[c1] || 0) + aggA[k];
+  }
+  const cat1Sorted = Object.entries(cat1Raw).sort((a, b) => b[1] - a[1]);
+  const VOC_PIE_TOPN = 10;
+  const cat1A = {};
+  cat1Sorted.slice(0, VOC_PIE_TOPN).forEach(([k, v]) => { cat1A[k] = v; });
+  const cat1Etc = cat1Sorted.slice(VOC_PIE_TOPN).reduce((s, [, v]) => s + v, 0);
+  if (cat1Etc > 0) cat1A['기타'] = cat1Etc;
+  if (Object.keys(cat1A).length) {
+    const pieWrap = document.createElement('div');
+    pieWrap.className = 'pie-wrap';
+    pieWrap.style.flexDirection = 'column';
+    pieWrap.innerHTML = `
+      <div class="panel" style="width:100%;">
+        <h2>VOC 대분류 분포 — ${chLabel} (이번 기간)</h2>
+        <div class="chart-wrap" style="height:440px;"><canvas id="voc-pie"></canvas></div>
+      </div>`;
+    main.appendChild(pieWrap);
+    setTimeout(() => drawPie('voc-pie', cat1A, 'vocDistChart'), 0);
+  }
 
   // 표 — 위클리 리포트 형식. 단일(퍼포먼스) 모드에선 비교 기간 2칸(전주건수·증감률) 숨김.
   const compare = state.mode !== 'single';
