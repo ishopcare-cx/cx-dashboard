@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-04T12:06:20.584500+09:00",
+  "generated_at": "2026-06-04T12:52:05.496053+09:00",
   "squads": [
     "CX 1",
     "CX 2",
@@ -147272,6 +147272,192 @@
       "kind": "type",
       "category": "장비 / 기술",
       "count": 1
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "reward",
+      "category": "금전적 보상 (기프티콘 등)",
+      "count": 1
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "type",
+      "category": "장비 / 기술",
+      "count": 1
+    },
+    {
+      "date": "2026-05-26",
+      "kind": "reward",
+      "category": "제신고 비용 감면",
+      "count": 1
+    },
+    {
+      "date": "2026-05-26",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-05-26",
+      "kind": "reward",
+      "category": "퀵 비용 무상 지원",
+      "count": 1
+    },
+    {
+      "date": "2026-05-26",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-05-26",
+      "kind": "type",
+      "category": "계약 / 약정",
+      "count": 2
+    },
+    {
+      "date": "2026-05-26",
+      "kind": "type",
+      "category": "배송 / 설치",
+      "count": 1
+    },
+    {
+      "date": "2026-05-26",
+      "kind": "type",
+      "category": "제신고 / 가맹",
+      "count": 1
+    },
+    {
+      "date": "2026-05-27",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-05-27",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 2
+    },
+    {
+      "date": "2026-05-27",
+      "kind": "type",
+      "category": "상담 관련",
+      "count": 2
+    },
+    {
+      "date": "2026-05-27",
+      "kind": "type",
+      "category": "제신고 / 가맹",
+      "count": 1
+    },
+    {
+      "date": "2026-05-28",
+      "kind": "reward",
+      "category": "제신고 비용 감면",
+      "count": 1
+    },
+    {
+      "date": "2026-05-28",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-05-28",
+      "kind": "type",
+      "category": "제신고 / 가맹",
+      "count": 2
+    },
+    {
+      "date": "2026-05-29",
+      "kind": "reward",
+      "category": "제신고 비용 감면",
+      "count": 1
+    },
+    {
+      "date": "2026-05-29",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 4
+    },
+    {
+      "date": "2026-05-29",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-05-29",
+      "kind": "type",
+      "category": "반품 / 교환",
+      "count": 1
+    },
+    {
+      "date": "2026-05-29",
+      "kind": "type",
+      "category": "상담 관련",
+      "count": 2
+    },
+    {
+      "date": "2026-05-29",
+      "kind": "type",
+      "category": "이벤트 / 프로모션",
+      "count": 1
+    },
+    {
+      "date": "2026-05-29",
+      "kind": "type",
+      "category": "전산 누락",
+      "count": 1
+    },
+    {
+      "date": "2026-05-29",
+      "kind": "type",
+      "category": "제신고 / 가맹",
+      "count": 1
+    },
+    {
+      "date": "2026-05-30",
+      "kind": "reward",
+      "category": "퀵 비용 무상 지원",
+      "count": 1
+    },
+    {
+      "date": "2026-05-30",
+      "kind": "type",
+      "category": "장비 / 기술",
+      "count": 1
+    },
+    {
+      "date": "2026-06-01",
+      "kind": "reward",
+      "category": "반품 / 교환 유연 처리 (1차_7일 초과 허용)",
+      "count": 1
+    },
+    {
+      "date": "2026-06-01",
+      "kind": "type",
+      "category": "상담 관련",
+      "count": 1
+    },
+    {
+      "date": "2026-06-02",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-06-02",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-06-02",
+      "kind": "type",
+      "category": "반품 / 교환",
+      "count": 2
     }
   ]
 }
