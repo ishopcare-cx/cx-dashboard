@@ -22,8 +22,6 @@ class Colabee:
         self.pw = password
         self.headless = headless
         self._pw = self._browser = self._ctx = self._page = None
-        self._on_stat_page = False    # COUNSEL_STAT 1회 진입 후 재사용
-        self._on_state_page = False   # AGENT_STATE_STAT 1회 진입 후 재사용
 
     def __enter__(self):
         self._pw = sync_playwright().start()
@@ -196,13 +194,12 @@ class Colabee:
         수신건수·발신건수·합계·상담비율. 데이터 없는 날도 빈 표 반환.
         flatpickr 인스턴스가 있으면 API로, 없으면 input value 직접.
         """
-        if not self._on_stat_page:
-            self._reload_via_js(
-                "document.getElementById('COUNSEL_STAT').click()",
-                settle_ms=3000)
-            if "COUNSEL_STAT" not in self._page.url:
-                raise RuntimeError(f"COUNSEL_STAT 진입 실패 — URL={self._page.url}")
-            self._on_stat_page = True
+        # 날짜 루프에서 fetch_agent_daily가 매번 상담원별 페이지로 이동하므로
+        # COUNSEL_STAT은 읽기 직전 항상 재진입해야 한다(캐싱 시 엉뚱한 표를 읽음).
+        self._reload_via_js(
+            "document.getElementById('COUNSEL_STAT').click()", settle_ms=3000)
+        if "COUNSEL_STAT" not in self._page.url:
+            raise RuntimeError(f"COUNSEL_STAT 진입 실패 — URL={self._page.url}")
 
         self._page.evaluate("""(d) => {
             for (const id of ['dateFrom', 'dateTo']) {
@@ -227,14 +224,12 @@ class Colabee:
         반환: [헤더, 데이터…] — 가입자명·상담원ID·상담원이름·상담시간·후처리·
         대기시간·다른업무·교육·회의·식사·휴식·자리비움·작업.
         """
-        if not self._on_state_page:
-            self._reload_via_js(
-                "document.getElementById('AGENT_STATE_STAT').click()",
-                settle_ms=3000)
-            if "AGENT_STATE_STAT" not in self._page.url:
-                raise RuntimeError(
-                    f"AGENT_STATE_STAT 진입 실패 — URL={self._page.url}")
-            self._on_state_page = True
+        # COUNSEL_STAT과 동일 — 읽기 직전 항상 재진입(페이지 이동 후 캐싱 불가).
+        self._reload_via_js(
+            "document.getElementById('AGENT_STATE_STAT').click()", settle_ms=3000)
+        if "AGENT_STATE_STAT" not in self._page.url:
+            raise RuntimeError(
+                f"AGENT_STATE_STAT 진입 실패 — URL={self._page.url}")
 
         self._page.evaluate("""(d) => {
             for (const id of ['dateFrom', 'dateTo']) {
