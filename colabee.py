@@ -112,6 +112,25 @@ class Colabee:
             self._set_date_and_reload(date)
         return self._extract_first_table()
 
+    def _reload_via_js(self, js, settle_ms=3500):
+        """#reload 등 네비게이션을 유발하는 JS를 실행한다.
+
+        클릭이 페이지 리로드를 일으키면 evaluate의 실행 컨텍스트가 파괴되며
+        'Execution context was destroyed, most likely because of a navigation'
+        예외가 나는데, 이는 클릭이 의도대로 동작했다는 신호이므로 무시한다.
+        (요소 없음·문법오류 등 다른 예외는 메시지가 달라 그대로 재전파된다.)
+        이 레이스가 콜라비 수집을 간헐적으로 중단시킨 원인이라 모든 reload
+        트리거를 이 헬퍼로 통일한다.
+        """
+        try:
+            self._page.evaluate(js)
+        except Exception as e:
+            msg = str(e)
+            if ("Execution context was destroyed" not in msg
+                    and "because of a navigation" not in msg):
+                raise
+        self._page.wait_for_timeout(settle_ms)
+
     def _set_date_and_reload(self, date):
         """dateFrom/dateTo(또는 date) 입력을 date로 맞추고 #reload 클릭."""
         self._page.evaluate("""(d) => {
@@ -123,8 +142,9 @@ class Colabee:
             }
         }""", date)
         self._page.wait_for_timeout(500)
-        self._page.evaluate("const b=document.getElementById('reload'); if(b) b.click();")
-        self._page.wait_for_timeout(3000)
+        self._reload_via_js(
+            "const b=document.getElementById('reload'); if(b) b.click();",
+            settle_ms=3000)
 
     def fetch_recv_daily(self, year=None, month=None):
         """IPPBX 통계 > 수신통계 > 일별 분류 표 (한 달 전체).
@@ -158,7 +178,7 @@ class Colabee:
             set('month', ym.m);
         }""", {"y": str(year), "m": f"{int(month):02d}"})
         p.wait_for_timeout(500)
-        p.evaluate("""() => {
+        self._reload_via_js("""() => {
             const r = document.getElementById('reload');
             if (r) { r.click(); return; }
             for (const el of document.querySelectorAll('button,a,input[type=button],input[type=submit]')) {
@@ -166,7 +186,6 @@ class Colabee:
                 if (t === '조회' || t === '검색') { el.click(); return; }
             }
         }""")
-        p.wait_for_timeout(3500)
 
     def fetch_counsel_stat(self, date):
         """상담 관리 > 상담통계 (id=COUNSEL_STAT) — 단일 날짜 분류별 집계.
@@ -178,9 +197,9 @@ class Colabee:
         flatpickr 인스턴스가 있으면 API로, 없으면 input value 직접.
         """
         if not self._on_stat_page:
-            self._page.evaluate(
-                "document.getElementById('COUNSEL_STAT').click()")
-            self._page.wait_for_timeout(3000)
+            self._reload_via_js(
+                "document.getElementById('COUNSEL_STAT').click()",
+                settle_ms=3000)
             if "COUNSEL_STAT" not in self._page.url:
                 raise RuntimeError(f"COUNSEL_STAT 진입 실패 — URL={self._page.url}")
             self._on_stat_page = True
@@ -198,8 +217,7 @@ class Colabee:
             }
         }""", date)
         self._page.wait_for_timeout(500)
-        self._page.evaluate("document.getElementById('reload').click()")
-        self._page.wait_for_timeout(3500)
+        self._reload_via_js("document.getElementById('reload').click()")
         return self._extract_first_table()
 
     def fetch_agent_state_stat(self, date):
@@ -210,9 +228,9 @@ class Colabee:
         대기시간·다른업무·교육·회의·식사·휴식·자리비움·작업.
         """
         if not self._on_state_page:
-            self._page.evaluate(
-                "document.getElementById('AGENT_STATE_STAT').click()")
-            self._page.wait_for_timeout(3000)
+            self._reload_via_js(
+                "document.getElementById('AGENT_STATE_STAT').click()",
+                settle_ms=3000)
             if "AGENT_STATE_STAT" not in self._page.url:
                 raise RuntimeError(
                     f"AGENT_STATE_STAT 진입 실패 — URL={self._page.url}")
@@ -231,6 +249,5 @@ class Colabee:
             }
         }""", date)
         self._page.wait_for_timeout(500)
-        self._page.evaluate("document.getElementById('reload').click()")
-        self._page.wait_for_timeout(3500)
+        self._reload_via_js("document.getElementById('reload').click()")
         return self._extract_first_table()
