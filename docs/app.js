@@ -1226,23 +1226,35 @@ const pieOutLabels = {
     if (!total) return;
     const cx = meta.data[0].x, cy = meta.data[0].y;
     const R = meta.data[0].outerRadius;  // 단일 데이터셋 — 모두 동일 반지름
+    const pctInside = chart.options.pctInside;  // true: 안=건수+%, 바깥=이름만
 
     ctx.save();
-    // 라벨 항목 + 조각 안 건수
+    // 라벨 항목 + 조각 안 건수(+%)
     const items = [];
     meta.data.forEach((arc, i) => {
       const val = ds[i];
       if (!val) return;
       const ang = (arc.startAngle + arc.endAngle) / 2;
       const cos = Math.cos(ang), sin = Math.sin(ang);
-      ctx.font = "600 13px -apple-system,Pretendard,sans-serif";
-      ctx.fillStyle = '#3a3f4a';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(val), cx + cos * R * 0.62, cy + sin * R * 0.62);
+      const pctStr = (val / total * 100).toFixed(1) + '%';
+      const ix = cx + cos * R * 0.62, iy = cy + sin * R * 0.62;
+      ctx.textAlign = 'center';
+      if (pctInside) {
+        ctx.font = "700 13px -apple-system,Pretendard,sans-serif";
+        ctx.fillStyle = '#2b2f37'; ctx.textBaseline = 'bottom';
+        ctx.fillText(String(val), ix, iy + 1);
+        ctx.font = "600 11px -apple-system,Pretendard,sans-serif";
+        ctx.fillStyle = '#5b6472'; ctx.textBaseline = 'top';
+        ctx.fillText(pctStr, ix, iy + 1);
+      } else {
+        ctx.font = "600 13px -apple-system,Pretendard,sans-serif";
+        ctx.fillStyle = '#3a3f4a'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(val), ix, iy);
+      }
       items.push({
         cos, sin, x0: cx + cos * R, y0: cy + sin * R,
         idealY: cy + sin * (R + 16), right: cos >= 0,
-        name: labels[i], pct: (val / total * 100).toFixed(1) + '%',
+        name: labels[i], pct: pctStr,
       });
     });
 
@@ -1279,10 +1291,16 @@ const pieOutLabels = {
       ctx.textAlign = right ? 'left' : 'right';
       ctx.fillStyle = '#1f2937';
       ctx.font = "700 14px -apple-system,Pretendard,sans-serif";
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(it.name, lx, it.labelY - 1);
-      ctx.textBaseline = 'top';
-      ctx.fillText(it.pct, lx, it.labelY + 1);
+      if (pctInside) {
+        // 바깥은 이름만
+        ctx.textBaseline = 'middle';
+        ctx.fillText(it.name, lx, it.labelY);
+      } else {
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(it.name, lx, it.labelY - 1);
+        ctx.textBaseline = 'top';
+        ctx.fillText(it.pct, lx, it.labelY + 1);
+      }
     });
     ctx.restore();
   },
@@ -1300,7 +1318,7 @@ function fmtVocDelta(d) {
 function mmdd(s) { const p = s.split('-'); return `${+p[1]}/${+p[2]}`; }
 function fmtRange(p) { return (p && p.start) ? `${mmdd(p.start)}~${mmdd(p.end)}` : ''; }
 
-function drawPie(canvasId, dataObj, chartVar) {
+function drawPie(canvasId, dataObj, chartVar, opts = {}) {
   const entries = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
   const labels = entries.map(e => e[0]);
   const data = entries.map(e => e[1]);
@@ -1316,6 +1334,7 @@ function drawPie(canvasId, dataObj, chartVar) {
     options: {
       maintainAspectRatio: false,
       radius: '70%',
+      pctInside: !!opts.pctInside,  // true면 조각 안=건수+%, 바깥=이름만
       layout: { padding: { top: 24, bottom: 24, left: 130, right: 130 } },
       plugins: {
         legend: { display: false },
@@ -1402,12 +1421,12 @@ function renderVoc(main) {
         <div class="chart-wrap" style="height:440px;"><canvas id="voc-pie"></canvas></div>
       </div>`;
     main.appendChild(pieWrap);
-    setTimeout(() => drawPie('voc-pie', cat1A, 'vocDistChart'), 0);
+    setTimeout(() => drawPie('voc-pie', cat1A, 'vocDistChart', { pctInside: true }), 0);
   }
 
   // 표 — 위클리 리포트 형식. 단일(퍼포먼스) 모드에선 비교 기간 2칸(전주건수·증감률) 숨김.
   const compare = state.mode !== 'single';
-  const rowsHtml = keys.slice(0, 30).map((k, i) => {
+  const rowsHtml = keys.map((k, i) => {
     const [c1, c2] = k.split('​');
     const av = aggA[k] || 0, bv = aggB[k] || 0;
     const cmpCells = compare
@@ -1435,7 +1454,7 @@ function renderVoc(main) {
   const panel = document.createElement('div');
   panel.className = 'panel';
   panel.innerHTML = `
-    <h2>VOC 상위 30 — ${chLabel} (인입건수 기준 정렬)</h2>
+    <h2>VOC 카테고리별 — ${chLabel} (인입건수 기준 정렬)</h2>
     <table class="voc-table">
       <thead>${grpHead}<tr class="voc-cols">${colHead}</tr></thead>
       <tbody>${rowsHtml || `<tr><td colspan="${compare ? 6 : 4}" style="color:var(--muted)">데이터 없음</td></tr>`}</tbody>
