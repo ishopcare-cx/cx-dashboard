@@ -1238,14 +1238,17 @@ const pieOutLabels = {
       const cos = Math.cos(ang), sin = Math.sin(ang);
       const pctStr = (val / total * 100).toFixed(1) + '%';
       const ix = cx + cos * R * 0.62, iy = cy + sin * R * 0.62;
+      // 조각이 얇아 라벨이 안 들어가면(겹침) 안에 안 그리고 바깥으로 뺌
+      const arcAngle = arc.endAngle - arc.startAngle;
+      const thin = (arcAngle * R * 0.62) < 18;
       ctx.textAlign = 'center';
       if (pctInside) {
-        ctx.font = "700 13px -apple-system,Pretendard,sans-serif";
-        ctx.fillStyle = '#2b2f37'; ctx.textBaseline = 'bottom';
-        ctx.fillText(String(val), ix, iy + 1);
-        ctx.font = "600 11px -apple-system,Pretendard,sans-serif";
-        ctx.fillStyle = '#5b6472'; ctx.textBaseline = 'top';
-        ctx.fillText(pctStr, ix, iy + 1);
+        // 인입량(숫자) 제거 — 조각 안에는 % 만. 얇으면 생략(바깥에서 표기).
+        if (!thin) {
+          ctx.font = "700 13px -apple-system,Pretendard,sans-serif";
+          ctx.fillStyle = '#2b2f37'; ctx.textBaseline = 'middle';
+          ctx.fillText(pctStr, ix, iy);
+        }
       } else {
         ctx.font = "600 13px -apple-system,Pretendard,sans-serif";
         ctx.fillStyle = '#3a3f4a'; ctx.textBaseline = 'middle';
@@ -1254,7 +1257,7 @@ const pieOutLabels = {
       items.push({
         cos, sin, x0: cx + cos * R, y0: cy + sin * R,
         idealY: cy + sin * (R + 16), right: cos >= 0,
-        name: labels[i], pct: pctStr,
+        name: labels[i], pct: pctStr, thin,
       });
     });
 
@@ -1292,9 +1295,18 @@ const pieOutLabels = {
       ctx.fillStyle = '#1f2937';
       ctx.font = "700 14px -apple-system,Pretendard,sans-serif";
       if (pctInside) {
-        // 바깥은 이름만
-        ctx.textBaseline = 'middle';
-        ctx.fillText(it.name, lx, it.labelY);
+        if (it.thin) {
+          // 얇은 조각: 안에 % 못 넣으므로 바깥에 이름 + %
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(it.name, lx, it.labelY - 1);
+          ctx.font = "600 12px -apple-system,Pretendard,sans-serif";
+          ctx.fillStyle = '#5b6472'; ctx.textBaseline = 'top';
+          ctx.fillText(it.pct, lx, it.labelY + 1);
+        } else {
+          // 바깥은 이름만 (% 는 조각 안)
+          ctx.textBaseline = 'middle';
+          ctx.fillText(it.name, lx, it.labelY);
+        }
       } else {
         ctx.textBaseline = 'bottom';
         ctx.fillText(it.name, lx, it.labelY - 1);
