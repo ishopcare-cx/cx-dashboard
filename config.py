@@ -12,7 +12,20 @@ CHAT_TAB = "chat_raw"
 # raw 시트를 빌더가 직접 읽어 집계. 가공된 피벗 시트(2026년 민원데이터)는
 # 수동 갱신 의존이라 4월에 멈춤 → raw가 훨씬 신선.
 COMPLAINT_SHEET_ID = "16a8xpFMVttjUGTt9HI8RaH1eI6IuhgKbU3mO4KL_h7g"
-COMPLAINT_TAB = "2026년 민원"  # 작성날짜·민원유형·보상여부 컬럼 보유
+# 민원 접수 양식이 2026-05-23부터 새 탭/새 컬럼 구조로 바뀌어, 옛 탭만 읽으면
+# 05-23 이후가 안 올라온다. 두 탭을 합쳐 읽는다. 각 항목:
+#   tab          탭 이름
+#   date         날짜 컬럼명 (작성날짜 / 접수일시)
+#   store        TEST 행 거를 상호/사업자 컬럼명
+#   type         민원유형 컬럼명 (유형 파이)
+#   reward       보상/조치 컬럼명 (보상 파이) — 신 양식은 '조치 내용 - 드롭다운'
+COMPLAINT_TABS = [
+    {"tab": "2026년 민원", "date": "작성날짜",
+     "store": "상호명_사업자번호", "type": "민원유형", "reward": "보상여부"},
+    {"tab": "2026년 민원-0523 신규", "date": "접수일시",
+     "store": "사업자번호/상호명", "type": "민원유형",
+     "reward": "조치 내용 - 드롭다운"},
+]
 
 # CX 퍼포먼스(26.05~) — 매일 01시 KST 전날 raw 데이터를 적재(sync_perf_sheet).
 # Call Raw(콜/상담시간) ← callraw_time, Call Raw(후처리) ← callraw_acw.

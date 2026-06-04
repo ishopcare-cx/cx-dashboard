@@ -266,42 +266,50 @@ _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def aggregate_complaint(sheet):
-    """소스 시트 '2026년 민원' (raw, 폼 제출 누적) 직접 읽기.
+    """민원 소스 시트의 여러 raw 탭(config.COMPLAINT_TABS)을 합쳐 집계.
 
-    컬럼: 상호명_사업자번호 | 상담사 이름 | 민원유형 | 민원내용 | 대응내용 |
-          2차대응필요 | 작성날짜 | 보상여부 | 인입연락처 | ...
-    날짜·민원유형·보상여부가 한 행에 모두 있어 둘 다 직접 집계 가능.
-    TEST 행은 거름.
+    접수 양식이 2026-05-23부터 새 탭/새 컬럼으로 바뀌어, 탭마다 날짜·상호·
+    유형·보상(조치) 컬럼명이 다르다. config의 탭 스펙으로 컬럼을 찾는다.
+    TEST 행은 거른다. 날짜는 ISO(YYYY-MM-DD)만 인정.
 
     반환: [{date, kind('type'|'reward'), category, count}]
     """
-    resp = sheet._api.values().get(
-        spreadsheetId=config.COMPLAINT_SHEET_ID,
-        range=f"'{config.COMPLAINT_TAB}'!A:K").execute()
-    rows = resp.get("values", [])
-    if len(rows) < 2:
-        return []
-    h = rows[0]
-    ci_type = _col(h, "민원유형")
-    ci_date = _col(h, "작성날짜")
-    ci_reward = _col(h, "보상여부")
     out = defaultdict(int)
-    for r in rows[1:]:
-        if len(r) <= ci_date:
+    for spec in config.COMPLAINT_TABS:
+        try:
+            resp = sheet._api.values().get(
+                spreadsheetId=config.COMPLAINT_SHEET_ID,
+                range=f"'{spec['tab']}'!A:Z").execute()
+        except Exception as e:
+            log.warning("민원 탭 '%s' 읽기 실패 — %s", spec["tab"], e)
             continue
-        date = (r[ci_date] or "").strip() if 0 <= ci_date < len(r) else ""
-        if not _ISO_DATE.match(date):
+        rows = resp.get("values", [])
+        if len(rows) < 2:
             continue
-        store = (r[0] or "").strip() if r else ""
-        if store.upper().startswith("TEST"):
+        h = rows[0]
+        ci_date = _col(h, spec["date"])
+        ci_store = _col(h, spec["store"])
+        ci_type = _col(h, spec["type"])
+        ci_reward = _col(h, spec["reward"])
+        if ci_date < 0:
+            log.warning("민원 탭 '%s' — 날짜 컬럼 '%s' 없음", spec["tab"], spec["date"])
             continue
-        if 0 <= ci_type < len(r):
-            t = (r[ci_type] or "").strip()
-            if t:
-                out[(date, "type", t)] += 1
-        if 0 <= ci_reward < len(r):
-            rw = (r[ci_reward] or "").strip() or "보상없음"
-            out[(date, "reward", rw)] += 1
+        for r in rows[1:]:
+            if len(r) <= ci_date:
+                continue
+            date = (r[ci_date] or "").strip()
+            if not _ISO_DATE.match(date):
+                continue
+            store = (r[ci_store] or "").strip() if 0 <= ci_store < len(r) else ""
+            if store.upper().startswith("TEST"):
+                continue
+            if 0 <= ci_type < len(r):
+                t = (r[ci_type] or "").strip()
+                if t:
+                    out[(date, "type", t)] += 1
+            if 0 <= ci_reward < len(r):
+                rw = (r[ci_reward] or "").strip() or "보상없음"
+                out[(date, "reward", rw)] += 1
     return [{"date": d, "kind": k, "category": c, "count": cnt}
             for (d, k, c), cnt in sorted(out.items())]
 
