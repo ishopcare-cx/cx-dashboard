@@ -4,7 +4,7 @@
   --bg: #f6f7f9;
   --panel: #ffffff;
   --border: #e3e6eb;
-  --text: #1f2937;
+  --text: #111827;
   --muted: #6b7280;
   --accent: #4f46e5;
   --accent-soft: #eef2ff;
@@ -24,7 +24,7 @@ body {
     'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
 }
 
@@ -216,32 +216,41 @@ main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 18px 20px;
   box-shadow: var(--shadow);
 }
 .card-label {
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 6px;
+  font-size: 13px;
+  color: #5b6472;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 .card-value {
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 34px;
+  font-weight: 800;
   letter-spacing: -0.5px;
+  color: var(--text);
+  line-height: 1;
 }
 .card-foot {
-  margin-top: 6px;
+  margin-top: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
-.card-prev::before { content: '비교: '; }
-.delta { font-weight: 600; }
-.delta.up { color: var(--up); }
-.delta.down { color: var(--down); }
+.card-prev::before { content: '비교 '; }
+.delta {
+  font-weight: 800;
+  font-size: 12.5px;
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+.delta.up { color: var(--up); background: #dcfce7; }
+.delta.down { color: var(--down); background: #fee2e2; }
 
 /* === 표 === */
 .panel {
@@ -260,19 +269,42 @@ main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14.5px;
 }
 th, td {
   text-align: right;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  border-bottom: 1px solid #eaedf1;
 }
-th { color: var(--muted); font-weight: 600; background: #fafbfc; }
+th { color: #374151; font-weight: 700; background: #eef1f5; }
+thead th { border-bottom: 2px solid #d8dde4; }
 th:first-child, td:first-child { text-align: left; }
 th:nth-child(2), td:nth-child(2) { text-align: left; }
-tbody tr:hover { background: #f8f9fb; }
+tbody tr:nth-child(even):not(.sub-row):not(.squad-row) { background: #fafbfc; }
+tbody td:first-child:not(.sub-name) { font-weight: 700; color: var(--text); }
+td.num { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
+tbody tr:hover { background: #eef2ff; }
 tbody tr:last-child td { border-bottom: none; }
 .num { font-variant-numeric: tabular-nums; }
+
+/* === VOC 위클리 리포트 표 === */
+.voc-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.voc-table th, .voc-table td { text-align: center; padding: 9px 12px; border: 1px solid #e8eaee; }
+.voc-table thead tr.voc-grp th { font-weight: 700; font-size: 13px; }
+.voc-table .voc-grp-a { background: #eef2ff; color: #3730a3; }
+.voc-table .voc-grp-b { background: #f8fafc; color: #475569; }
+.voc-table thead tr.voc-cols th { background: #fafbfc; color: #374151; font-weight: 700; border-bottom: 1px solid #e8eaee; }
+.voc-table th.voc-in { background: #f7d4d4; }     /* 인입건수 — 분홍 */
+.voc-table th.voc-prev { background: #fdeeca; }    /* 전주건수 — 크림 */
+.voc-table tbody tr:nth-child(even) td { background: #fff; }
+.voc-table tbody td.voc-rank { color: #6b7280; font-weight: 400; }
+.voc-table tbody td.voc-cat { font-weight: 700; color: var(--text); }
+.voc-table tbody td.voc-incell { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.voc-table tbody tr:hover td { background: #fbfcfe; }
+/* 증감률 — VOC 전용: 증가=빨강 / 감소=파랑 */
+.voc-up { color: #dc2626; font-weight: 700; }
+.voc-down { color: #2563eb; font-weight: 700; }
+.voc-flat { color: #9aa0aa; }
 
 /* === 차트 === */
 .chart-wrap { position: relative; height: 280px; }
@@ -388,6 +420,8 @@ tbody tr:last-child td { border-bottom: none; }
   box-shadow: var(--shadow);
   margin-bottom: 16px;
   overflow-x: auto;
+  width: fit-content;
+  max-width: 100%;
 }
 .ins-matrix h4 {
   margin: 0 0 10px 0;
@@ -395,21 +429,24 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--text);
 }
 .ins-matrix table {
-  width: 100%;
+  width: auto;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13.5px;
 }
 .ins-matrix th, .ins-matrix td {
-  padding: 6px 10px;
+  padding: 7px 14px;
   text-align: right;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid #eef1f5;
   white-space: nowrap;
 }
-.ins-matrix th { background: #fafbfc; color: var(--muted); font-weight: 600; }
-.ins-matrix th:first-child, .ins-matrix td:first-child { text-align: left; font-weight: 600; }
-.ins-matrix td.mx-active { color: var(--text); font-weight: 600; }
-.ins-matrix td.mx-low { color: var(--muted); }
-.ins-matrix td.mx-chat { color: #1d4ed8; font-weight: 500; background: #eff6ff; }
+.ins-matrix th { background: #eef1f5; color: #374151; font-weight: 700; }
+.ins-matrix th:first-child, .ins-matrix td:first-child { text-align: left; font-weight: 700; color: var(--text); padding-right: 18px; }
+.ins-matrix tbody tr:nth-child(even) { background: #fafbfc; }
+.ins-matrix tbody tr:hover td { background: #eef2ff; }
+.ins-matrix td.mx-active, .ins-matrix td.mx-low { color: var(--text); font-weight: 800; }
+.ins-matrix td.mx-dash { color: #c9ced6; }
+.ins-matrix td.mx-chat { color: #94a3b8; font-weight: 600; font-size: 12px; }
+.ins-matrix td.mx-sum { background: #f3f5f8; font-weight: 800; color: var(--text); border-left: 1px solid var(--border); }
 .ins-legend { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; }
 
 /* 스쿼드 드릴다운 — 행 클릭으로 상담사별 펼치기 */

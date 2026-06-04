@@ -1134,17 +1134,18 @@ function renderComplaint(main) {
     { label: '주요 보상 (1번)', value: topKey(aggA.reward), prev: topKey(aggB.reward), d: null },
   ]));
 
-  // 파이 2종 — 한 줄에 나란히
+  // 파이 2종 — 세로로 쌓아 폭 확보(긴 라벨 잘림 방지)
   const wrap = document.createElement('div');
   wrap.className = 'pie-wrap';
+  wrap.style.flexDirection = 'column';
   wrap.innerHTML = `
-    <div class="panel" style="flex:1;min-width:380px;">
+    <div class="panel" style="width:100%;">
       <h2>1번 기간 — 민원유형 분포</h2>
-      <div class="chart-wrap" style="height:340px;"><canvas id="pie-type"></canvas></div>
+      <div class="chart-wrap" style="height:380px;"><canvas id="pie-type"></canvas></div>
     </div>
-    <div class="panel" style="flex:1;min-width:380px;">
+    <div class="panel" style="width:100%;">
       <h2>1번 기간 — 보상 진행 분포</h2>
-      <div class="chart-wrap" style="height:340px;"><canvas id="pie-reward"></canvas></div>
+      <div class="chart-wrap" style="height:380px;"><canvas id="pie-reward"></canvas></div>
     </div>`;
   main.appendChild(wrap);
   setTimeout(() => {
@@ -1184,6 +1185,91 @@ const PIE_COLORS = [
   '#eab308', '#22d3ee',
 ];
 
+// ── 차트 공통 테마 ────────────────────────────────────────────
+const CH_IN = '#6366f1';    // 인입/주지표 — 인디고
+const CH_ANS = '#2dd4bf';   // 응대/보조 — 틸
+const CH_RATE = '#f59e0b';  // 비율/강조 — 앰버
+const CH_GRID = '#eef0f4';
+const CH_TICK = '#9aa0aa';
+const PASTEL_PIE = ['#5b9bd5', '#e07b7b', '#ffd06b', '#a9d08e', '#fbe3cf',
+  '#4ec5c1', '#f7d9c4', '#f4b9c2', '#c9b6e4', '#9ccadf', '#f6a96b', '#d4d4d4'];
+
+// 막대/점 위 또렷한 값 라벨 — 흰 칩 + 색 테두리 + 굵은 글씨.
+// 데이터가 많으면(>14) 막대 라벨은 격일로 솎아 겹침 방지(라인 %는 항상 표기).
+function barChip(textColor, borderColor, opts = {}) {
+  return {
+    anchor: 'end', align: 'top', color: textColor, backgroundColor: '#ffffff',
+    borderColor: borderColor, borderWidth: 1.4, borderRadius: 7,
+    padding: { top: 3, bottom: 3, left: 6, right: 6 },
+    font: { weight: 'bold', size: 11 },
+    display: (ctx) => {
+      const v = ctx.dataset.data[ctx.dataIndex];
+      if (v == null || v === 0) return false;
+      if (opts.dense && ctx.dataIndex % 2 === 1) return false;
+      return true;
+    },
+    formatter: (v) => (v ? v.toLocaleString() : ''),
+  };
+}
+
+// 파이 외부 라벨 + 지시선 + 조각 안 건수 (커스텀 플러그인)
+const pieOutLabels = {
+  id: 'pieOutLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data.length) return;
+    const ds = chart.data.datasets[0].data;
+    const labels = chart.data.labels;
+    const total = ds.reduce((s, v) => s + v, 0);
+    if (!total) return;
+    const cx = meta.data[0].x, cy = meta.data[0].y;
+    ctx.save();
+    meta.data.forEach((arc, i) => {
+      const val = ds[i];
+      if (!val) return;
+      const pct = val / total * 100;
+      const ang = (arc.startAngle + arc.endAngle) / 2;
+      const cos = Math.cos(ang), sin = Math.sin(ang);
+      const r = arc.outerRadius;
+      // 조각 안 건수
+      ctx.font = "600 13px -apple-system,Pretendard,sans-serif";
+      ctx.fillStyle = '#3a3f4a';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(val), cx + cos * r * 0.62, cy + sin * r * 0.62);
+      // 지시선
+      const x0 = cx + cos * r, y0 = cy + sin * r;
+      const x1 = cx + cos * (r + 16), y1 = cy + sin * (r + 16);
+      const right = cos >= 0;
+      const x2 = x1 + (right ? 26 : -26);
+      ctx.strokeStyle = '#b8bdc6'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineTo(x2, y1); ctx.stroke();
+      // 바깥 라벨 — 이름·% 동일 스타일(굵게 14px 진한 글씨)
+      const tx = x2 + (right ? 6 : -6);
+      ctx.textAlign = right ? 'left' : 'right';
+      ctx.fillStyle = '#1f2937';
+      ctx.font = "700 14px -apple-system,Pretendard,sans-serif";
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(labels[i], tx, y1 - 2);
+      ctx.textBaseline = 'top';
+      ctx.fillText(pct.toFixed(1) + '%', tx, y1 + 2);
+    });
+    ctx.restore();
+  },
+};
+
+// VOC 전용 증감률 — 증가=빨강 / 감소=파랑, 부호 % (화살표 없음)
+function fmtVocDelta(d) {
+  if (d == null || isNaN(d)) return '<span class="voc-flat">-</span>';
+  const cls = d > 0 ? 'voc-up' : (d < 0 ? 'voc-down' : 'voc-flat');
+  const sign = d > 0 ? '+' : '';
+  return `<span class="${cls}">${sign}${d.toFixed(1)}%</span>`;
+}
+
+// 기간 → "M/D~M/D"
+function mmdd(s) { const p = s.split('-'); return `${+p[1]}/${+p[2]}`; }
+function fmtRange(p) { return (p && p.start) ? `${mmdd(p.start)}~${mmdd(p.end)}` : ''; }
+
 function drawPie(canvasId, dataObj, chartVar) {
   const entries = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
   const labels = entries.map(e => e[0]);
@@ -1195,40 +1281,19 @@ function drawPie(canvasId, dataObj, chartVar) {
     type: 'pie',
     data: {
       labels,
-      datasets: [{ data, backgroundColor: PIE_COLORS, borderWidth: 1, borderColor: '#fff' }],
+      datasets: [{ data, backgroundColor: PASTEL_PIE, borderWidth: 2, borderColor: '#fff' }],
     },
     options: {
       maintainAspectRatio: false,
+      radius: '60%',
+      layout: { padding: { top: 28, bottom: 28, left: 150, right: 150 } },
       plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 12 } } },
-        tooltip: {
-          callbacks: {
-            label: (c) => {
-              const total = c.dataset.data.reduce((s, v) => s + v, 0);
-              const pct = total ? (c.parsed / total * 100).toFixed(1) : 0;
-              return `${c.label}: ${c.parsed}건 (${pct}%)`;
-            },
-          },
-        },
-        datalabels: {
-          color: '#fff',
-          font: { weight: 'bold', size: 12 },
-          textStrokeColor: 'rgba(0,0,0,0.5)',
-          textStrokeWidth: 3,
-          textShadowBlur: 4,
-          textShadowColor: 'rgba(0,0,0,0.4)',
-          formatter: (value, ctx) => {
-            const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
-            const pct = total > 0 ? (value / total * 100) : 0;
-            // 5% 미만은 라벨 겹침 방지로 숨김
-            if (pct < 5) return '';
-            return `${value}건\n${pct.toFixed(1)}%`;
-          },
-          textAlign: 'center',
-        },
+        legend: { display: false },
+        tooltip: { enabled: false },
+        datalabels: { display: false },
       },
     },
-    plugins: [ChartDataLabels],
+    plugins: [pieOutLabels],
   });
 }
 
@@ -1284,24 +1349,42 @@ function renderVoc(main) {
     { label: '상위 카테고리', value: topLabel, prev: '', d: null },
   ]));
 
-  // 표 — 위클리 리포트 형식 (순위 | 대 | 중 | 1번 (건수%) | 2번 (건수%) | 변화%)
+  // 표 — 위클리 리포트 형식. 단일(퍼포먼스) 모드에선 비교 기간 2칸(전주건수·증감률) 숨김.
+  const compare = state.mode !== 'single';
   const rowsHtml = keys.slice(0, 30).map((k, i) => {
     const [c1, c2] = k.split('​');
     const av = aggA[k] || 0, bv = aggB[k] || 0;
+    const cmpCells = compare
+      ? `<td class="num">${fmtNum(bv)}</td><td class="num">${fmtVocDelta(delta(av, bv))}</td>`
+      : '';
     return `<tr>
-      <td class="num">${i + 1}</td>
-      <td>${c1}</td>
-      <td>${c2}</td>
-      <td class="num">${fmtCntPct(av, totalA)}</td>
-      <td class="num">${fmtCntPct(bv, totalB)}</td>
-      <td class="num">${fmtDelta(delta(av, bv))}</td>
+      <td class="voc-rank">${i + 1}</td>
+      <td class="voc-cat">${c1}</td>
+      <td class="voc-cat">${c2}</td>
+      <td class="num voc-incell">${fmtNum(av)}</td>
+      ${cmpCells}
     </tr>`;
-  });
-  main.appendChild(tablePanel(
-    `VOC 상위 30 — ${chLabel} (1번 기간 기준 정렬)`,
-    ['순위', '대분류', '중분류', '1번 기간', '2번 기간', '변화'],
-    rowsHtml,
-  ));
+  }).join('');
+
+  const grpHead = compare
+    ? `<tr class="voc-grp">
+         <th class="voc-grp-a" colspan="4">이번 기간 (${fmtRange(A)})</th>
+         <th class="voc-grp-b" colspan="2">비교 기간 (${fmtRange(B)})</th>
+       </tr>`
+    : '';
+  const colHead = compare
+    ? `<th>순위</th><th>대분류</th><th>중분류</th><th class="voc-in">인입건수</th><th class="voc-prev">전주건수</th><th>증감률</th>`
+    : `<th>순위</th><th>대분류</th><th>중분류</th><th class="voc-in">인입건수</th>`;
+
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.innerHTML = `
+    <h2>VOC 상위 30 — ${chLabel} (인입건수 기준 정렬)</h2>
+    <table class="voc-table">
+      <thead>${grpHead}<tr class="voc-cols">${colHead}</tr></thead>
+      <tbody>${rowsHtml || `<tr><td colspan="${compare ? 6 : 4}" style="color:var(--muted)">데이터 없음</td></tr>`}</tbody>
+    </table>`;
+  main.appendChild(panel);
 }
 
 function aggVoc(rows, p) {
@@ -1376,38 +1459,42 @@ function drawRespRate(rows, A, B) {
   if (respRateChart) respRateChart.destroy();
   const ctx = document.getElementById('resp-rate');
   if (!ctx) return;
+  const dense = labels.length > 14;
   respRateChart = new Chart(ctx, {
     data: {
       labels,
       datasets: [
-        { type: 'bar', label: '인입호', data: inH, backgroundColor: '#4f46e5', yAxisID: 'y' },
-        { type: 'bar', label: '응대호', data: ans, backgroundColor: '#5eead4', yAxisID: 'y' },
-        { type: 'line', label: '응답률', data: rate, borderColor: '#f97316', backgroundColor: '#f97316',
-          yAxisID: 'y1', tension: 0.25, pointRadius: 4, borderWidth: 2 },
+        { type: 'bar', label: '인입호', data: inH, backgroundColor: CH_IN, borderRadius: 10,
+          barPercentage: 0.74, categoryPercentage: 0.66, yAxisID: 'y',
+          datalabels: barChip('#4338ca', CH_IN, { dense }) },
+        { type: 'bar', label: '응대호', data: ans, backgroundColor: CH_ANS, borderRadius: 10,
+          barPercentage: 0.74, categoryPercentage: 0.66, yAxisID: 'y',
+          datalabels: barChip('#0f766e', CH_ANS, { dense }) },
+        { type: 'line', label: '응답률', data: rate, borderColor: CH_RATE, backgroundColor: '#fff',
+          yAxisID: 'y1', tension: 0.4, pointRadius: 5, pointBorderWidth: 2.5, borderWidth: 3, spanGaps: true,
+          datalabels: { anchor: 'end', align: 'top', color: '#fff', backgroundColor: CH_RATE,
+            borderRadius: 9, padding: { top: 3, bottom: 3, left: 7, right: 7 },
+            font: { weight: 'bold', size: 11.5 }, formatter: (v) => (v == null ? '' : v.toFixed(0) + '%') } },
       ],
     },
     options: {
       maintainAspectRatio: false,
+      layout: { padding: { top: 26 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'bottom' },
-        tooltip: {
-          filter: (ctx) => ctx.dataset.label === '응답률',
-          callbacks: {
-            label: (ctx) => {
-              const v = ctx.parsed.y;
-              return `응답률: ${v == null ? '-' : v.toFixed(1) + '%'}`;
-            },
-          },
-        },
+        legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } } },
+        tooltip: { enabled: false },
       },
       scales: {
-        y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: '건수' } },
+        y: { beginAtZero: true, grid: { color: CH_GRID, drawTicks: false }, border: { display: false },
+             ticks: { precision: 0, color: CH_TICK, padding: 8 } },
         y1: { beginAtZero: true, max: 100, position: 'right', grid: { drawOnChartArea: false },
-              ticks: { callback: v => v + '%' }, title: { display: true, text: '응답률' } },
-        x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+              border: { display: false }, ticks: { color: CH_TICK, callback: v => v + '%' } },
+        x: { grid: { display: false }, border: { color: CH_GRID },
+             ticks: { color: CH_TICK, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
       },
     },
+    plugins: [ChartDataLabels],
   });
 }
 
@@ -1427,22 +1514,40 @@ function drawTrend(rows, metrics, A, B) {
     .map(r => r.date).sort();
   const ds = [...new Set(dates)];
 
-  const colorA = '#4f46e5', colorB = '#94a3b8';
+  const dense = ds.length > 14;
+  const SERIES = [
+    { color: CH_IN, text: '#4338ca', align: 'top' },
+    { color: CH_ANS, text: '#0f766e', align: 'bottom' },
+  ];
   const datasets = [];
-  for (const m of metrics) {
+  metrics.forEach((m, mi) => {
+    const s = SERIES[mi % SERIES.length];
     datasets.push({
       label: m,
       data: ds.map(d => {
         const r = rows.find(x => x.date === d);
         return r ? (r[m] || 0) : 0;
       }),
-      borderColor: m === '인입' ? colorA : colorB,
-      backgroundColor: m === '인입' ? colorA : colorB,
-      borderWidth: 2,
-      tension: 0.25,
-      pointRadius: 3,
+      borderColor: s.color,
+      backgroundColor: '#fff',
+      borderWidth: 3,
+      tension: 0.4,
+      pointRadius: 4,
+      pointBorderWidth: 2,
+      datalabels: {
+        anchor: s.align === 'top' ? 'end' : 'start', align: s.align,
+        color: s.text, backgroundColor: '#fff', borderColor: s.color, borderWidth: 1.4, borderRadius: 7,
+        padding: { top: 2, bottom: 2, left: 6, right: 6 }, font: { weight: 'bold', size: 10.5 },
+        display: (ctx) => {
+          const v = ctx.dataset.data[ctx.dataIndex];
+          if (v == null || v === 0) return false;
+          if (dense && ctx.dataIndex % 2 === 1) return false;
+          return true;
+        },
+        formatter: (v) => (v ? v.toLocaleString() : ''),
+      },
     });
-  }
+  });
   if (trendChart) trendChart.destroy();
   const ctx = document.getElementById('trend');
   if (!ctx) return;
@@ -1451,12 +1556,19 @@ function drawTrend(rows, metrics, A, B) {
     data: { labels: ds.map(fmtDateShort), datasets },
     options: {
       maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } },
+      layout: { padding: { top: 20 } },
+      plugins: {
+        legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } } },
+        tooltip: { enabled: false },
+      },
       scales: {
-        y: { beginAtZero: true, ticks: { precision: 0 } },
-        x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+        y: { beginAtZero: true, grid: { color: CH_GRID, drawTicks: false }, border: { display: false },
+             ticks: { precision: 0, color: CH_TICK, padding: 8 } },
+        x: { grid: { display: false }, border: { color: CH_GRID },
+             ticks: { color: CH_TICK, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
       },
     },
+    plugins: [ChartDataLabels],
   });
 }
 
@@ -1875,12 +1987,12 @@ function squadAgentMatrix(squad, A, mode /* 'call' | 'chat' */) {
           }
         }
         else if (ch >= CHAT_ACTIVE_THRESHOLD) { cell = '채팅'; cls = 'mx-chat'; }
-        else cell = '-';
+        else { cell = '-'; cls = 'mx-dash'; }
       } else {
         // chat mode
         if (ch >= 1) { cell = fmtNum(ch); cls = ch >= CHAT_ACTIVE_THRESHOLD ? 'mx-active' : 'mx-low'; }
         else if (cc >= CALL_ACTIVE_THRESHOLD) { cell = '콜'; cls = 'mx-chat'; }
-        else cell = '-';
+        else { cell = '-'; cls = 'mx-dash'; }
       }
       return `<td class="num ${cls}">${cell}</td>`;
     }).join('');
@@ -1895,7 +2007,7 @@ function squadAgentMatrix(squad, A, mode /* 'call' | 'chat' */) {
       } else {
         tc = `<b>${fmtNum(total)}</b>`;
       }
-      totalCell = `<td class="num" style="background:rgba(99,102,241,.06)">${tc}</td>`;
+      totalCell = `<td class="num mx-sum">${tc}</td>`;
     }
     return `<tr><td>${name}</td>${cells}${totalCell}</tr>`;
   }).join('');
