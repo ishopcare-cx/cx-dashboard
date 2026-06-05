@@ -309,6 +309,67 @@ tbody tr:last-child td { border-bottom: none; }
 /* === 차트 === */
 .chart-wrap { position: relative; height: 280px; }
 
+/* === VOC 기타 드릴다운 패널 === */
+.pie-flex-wrap {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+}
+.pie-flex-wrap .chart-wrap {
+  flex: 1 1 0;
+  min-width: 0;
+}
+#voc-etc-panel {
+  width: 240px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #e8eaee;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+#voc-etc-panel h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 10px 0;
+}
+#voc-etc-panel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#voc-etc-panel th {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 6px;
+  border-bottom: 1px solid #e8eaee;
+}
+#voc-etc-panel td {
+  font-size: 13px;
+  text-align: center;
+  padding: 5px 6px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #111827;
+}
+#voc-etc-panel td:first-child {
+  color: #6b7280;
+  font-weight: 400;
+}
+#voc-etc-panel td:nth-child(2) {
+  text-align: left;
+  font-weight: 700;
+}
+#voc-etc-panel td:last-child {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+#voc-etc-panel tr:last-child td {
+  border-bottom: none;
+}
+
 /* 데이터 부족 안내 */
 .warn-banner {
   background: #fef3c7;
