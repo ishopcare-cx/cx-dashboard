@@ -1330,6 +1330,25 @@ function fmtVocDelta(d) {
 function mmdd(s) { const p = s.split('-'); return `${+p[1]}/${+p[2]}`; }
 function fmtRange(p) { return (p && p.start) ? `${mmdd(p.start)}~${mmdd(p.end)}` : ''; }
 
+function renderEtcPanel(etcDetails) {
+  const panel = document.getElementById('voc-etc-panel');
+  if (!panel) return;
+  if (!etcDetails || etcDetails.length === 0) return;
+  const rows = etcDetails.map(([label, count], i) =>
+    `<tr>
+      <td>${i + 1}</td>
+      <td>${label}</td>
+      <td>${fmtNum(count)}</td>
+    </tr>`
+  ).join('');
+  panel.innerHTML = `
+    <h3>기타 세부 항목</h3>
+    <table>
+      <thead><tr><th>순위</th><th>대분류</th><th>건수</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
 function drawPie(canvasId, dataObj, chartVar, opts = {}) {
   const entries = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
   const labels = entries.map(e => e[0]);
@@ -1352,6 +1371,21 @@ function drawPie(canvasId, dataObj, chartVar, opts = {}) {
         legend: { display: false },
         tooltip: { enabled: false },
         datalabels: { display: false },
+      },
+      onClick(e, elements) {
+        if (!opts.etcDetails || opts.etcDetails.length === 0) return;
+        if (!elements.length) return;
+        const idx = elements[0].index;
+        const clickedLabel = window[chartVar].data.labels[idx];
+        if (clickedLabel !== '기타') return;
+        const panel = document.getElementById('voc-etc-panel');
+        if (!panel) return;
+        if (panel.hidden) {
+          renderEtcPanel(opts.etcDetails);
+          panel.hidden = false;
+        } else {
+          panel.hidden = true;
+        }
       },
     },
     plugins: [pieOutLabels],
