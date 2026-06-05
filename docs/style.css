@@ -293,7 +293,7 @@ tbody tr:last-child td { border-bottom: none; }
 .voc-table thead tr.voc-grp th { font-weight: 700; font-size: 13px; }
 .voc-table .voc-grp-a { background: #eef2ff; color: #3730a3; }
 .voc-table .voc-grp-b { background: #f8fafc; color: #475569; }
-.voc-table thead tr.voc-cols th { background: #fafbfc; color: #374151; font-weight: 700; border-bottom: 1px solid #e8eaee; }
+.voc-table thead tr.voc-cols th { background: #fafbfc; color: #374151; font-weight: 700; border-bottom: 1px solid var(--border); }
 .voc-table th.voc-in { background: #f7d4d4; }     /* 인입건수 — 분홍 */
 .voc-table th.voc-prev { background: #fdeeca; }    /* 전주건수 — 크림 */
 .voc-table tbody tr:nth-child(even) td { background: #fff; }
@@ -345,13 +345,13 @@ tbody tr:last-child td { border-bottom: none; }
   font-weight: 600;
   text-align: center;
   padding: 4px 6px;
-  border-bottom: 1px solid #e8eaee;
+  border-bottom: 1px solid var(--border);
 }
 #voc-etc-panel td {
   font-size: 13px;
   text-align: center;
   padding: 5px 6px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
   color: var(--text);
 }
 #voc-etc-panel td:first-child {
