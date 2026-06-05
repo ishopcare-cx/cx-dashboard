@@ -1444,12 +1444,12 @@ function renderVoc(main) {
     { label: '상위 카테고리', value: topLabel, prev: '', d: null },
   ]));
 
-  // 파이 — VOC 대분류 분포 (이번 기간). 민원과 동일 스타일.
-  // 대분류가 많아(0%대 소분류 다수) 상위 8개 + '기타'로 묶어 깔끔하게.
+  // 파이 — VOC 중분류 분포 (이번 기간). 상위 10 + 기타.
   const cat1Raw = {};
   for (const k of Object.keys(aggA)) {
-    const c1 = k.split('​')[0] || '미분류';
-    cat1Raw[c1] = (cat1Raw[c1] || 0) + aggA[k];
+    const parts = k.split('​');
+    const c2 = parts[1] || parts[0] || '미분류';  // 중분류 (없으면 대분류 폴백)
+    cat1Raw[c2] = (cat1Raw[c2] || 0) + aggA[k];
   }
   const cat1Sorted = Object.entries(cat1Raw).sort((a, b) => b[1] - a[1]);
   const VOC_PIE_TOPN = 10;
@@ -1464,7 +1464,7 @@ function renderVoc(main) {
     pieWrap.style.flexDirection = 'column';
     pieWrap.innerHTML = `
       <div class="panel" style="width:100%;">
-        <h2>VOC 대분류 분포 — ${chLabel} (이번 기간)</h2>
+        <h2>VOC 중분류 분포 — ${chLabel} (이번 기간)</h2>
         <div class="pie-flex-wrap">
           <div class="chart-wrap" style="height:440px;"><canvas id="voc-pie"></canvas></div>
           <div id="voc-etc-panel" hidden></div>
