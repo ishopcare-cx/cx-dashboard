@@ -1366,7 +1366,7 @@ function drawPie(canvasId, dataObj, chartVar, opts = {}) {
       maintainAspectRatio: false,
       radius: '70%',
       pctInside: !!opts.pctInside,  // true면 조각 안=건수+%, 바깥=이름만
-      layout: { padding: { top: 24, bottom: 24, left: 130, right: 130 } },
+      layout: { padding: { top: 40, bottom: 40, left: 180, right: 180 } },
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
@@ -1464,7 +1464,7 @@ function renderVoc(main) {
       <div class="panel" style="width:100%;">
         <h2>VOC 중분류 분포 — ${chLabel} (이번 기간)</h2>
         <div class="pie-flex-wrap">
-          <div class="chart-wrap" style="height:440px;"><canvas id="voc-pie"></canvas></div>
+          <div class="chart-wrap" style="height:600px;"><canvas id="voc-pie"></canvas></div>
           <div id="voc-etc-panel" hidden></div>
         </div>
       </div>`;
