@@ -1455,9 +1455,7 @@ function renderVoc(main) {
   const VOC_PIE_TOPN = 10;
   const cat1A = {};
   cat1Sorted.slice(0, VOC_PIE_TOPN).forEach(([k, v]) => { cat1A[k] = v; });
-  const etcDetails = cat1Sorted.slice(VOC_PIE_TOPN); // [[대분류, 건수], ...]
-  const cat1Etc = etcDetails.reduce((s, [, v]) => s + v, 0);
-  if (cat1Etc > 0) cat1A['기타'] = cat1Etc;
+  const etcDetails = cat1Sorted.slice(VOC_PIE_TOPN); // 기타 세부항목 (패널용, 파이엔 미표시)
   if (Object.keys(cat1A).length) {
     const pieWrap = document.createElement('div');
     pieWrap.className = 'pie-wrap';
