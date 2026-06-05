@@ -1421,7 +1421,8 @@ function renderVoc(main) {
   const VOC_PIE_TOPN = 10;
   const cat1A = {};
   cat1Sorted.slice(0, VOC_PIE_TOPN).forEach(([k, v]) => { cat1A[k] = v; });
-  const cat1Etc = cat1Sorted.slice(VOC_PIE_TOPN).reduce((s, [, v]) => s + v, 0);
+  const etcDetails = cat1Sorted.slice(VOC_PIE_TOPN); // [[대분류, 건수], ...]
+  const cat1Etc = etcDetails.reduce((s, [, v]) => s + v, 0);
   if (cat1Etc > 0) cat1A['기타'] = cat1Etc;
   if (Object.keys(cat1A).length) {
     const pieWrap = document.createElement('div');
@@ -1430,10 +1431,13 @@ function renderVoc(main) {
     pieWrap.innerHTML = `
       <div class="panel" style="width:100%;">
         <h2>VOC 대분류 분포 — ${chLabel} (이번 기간)</h2>
-        <div class="chart-wrap" style="height:440px;"><canvas id="voc-pie"></canvas></div>
+        <div class="pie-flex-wrap">
+          <div class="chart-wrap" style="height:440px;"><canvas id="voc-pie"></canvas></div>
+          <div id="voc-etc-panel" hidden></div>
+        </div>
       </div>`;
     main.appendChild(pieWrap);
-    setTimeout(() => drawPie('voc-pie', cat1A, 'vocDistChart', { pctInside: true }), 0);
+    setTimeout(() => drawPie('voc-pie', cat1A, 'vocDistChart', { pctInside: true, etcDetails }), 0);
   }
 
   // 표 — 위클리 리포트 형식. 단일(퍼포먼스) 모드에선 비교 기간 2칸(전주건수·증감률) 숨김.
