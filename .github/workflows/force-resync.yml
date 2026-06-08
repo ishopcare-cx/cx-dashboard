@@ -1,0 +1,27 @@
+name: force-resync
+
+on:
+  workflow_dispatch:
+    inputs:
+      dates:
+        description: '재삽입할 날짜들 (공백 구분, 예: 2026-06-04 2026-06-05)'
+        required: true
+
+jobs:
+  resync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: pip install google-auth==2.35.0 google-api-python-client==2.149.0
+      - name: Force resync
+        env:
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+        run: python force_resync.py ${{ github.event.inputs.dates }}
