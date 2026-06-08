@@ -30,7 +30,7 @@ COMPLAINT_TABS = [
 # CX 퍼포먼스(26.05~) — 매일 01시 KST 전날 raw 데이터를 적재(sync_perf_sheet).
 # Call Raw(콜/상담시간) ← callraw_time, Call Raw(후처리) ← callraw_acw.
 PERF_SHEET_ID = "1PU8Q074ABUDLBDOWnplu-GQmquis4Cr7zJ-S4a0X1eY"
-PERF_TIME_TAB = "Call Raw(콜/상담시간)"
+PERF_TIME_TAB = "Call Raw(콜상담시간)"
 PERF_ACW_TAB = "Call Raw(후처리)"
 
 # 실제 상담사가 아닌 시스템/공용 상담원ID — raw 적재에서 제외.
