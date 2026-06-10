@@ -748,7 +748,7 @@ function renderCall(main) {
     const agents = collectCallAgentRows(d.agent_by_date, A, B, stdA);
     main.appendChild(tablePanel(
       '상담사별 콜 (1번 기간) — 응답률은 활성자(≥' + CALL_ACTIVE_THRESHOLD + ')만',
-      ['상담사', '스쿼드', '수신연결(A)', '수신연결(B)', '변화', '응답률', 'IB평균통화', 'OB평균통화', '후처리'],
+      ['상담사', '스쿼드', '수신연결(A)', '수신연결(B)', '변화', '응답률', 'IB평균통화', 'OB평균통화', '발신연결', '후처리'],
       agents,
     ));
     return;
@@ -1033,6 +1033,7 @@ function collectCallAgentRows(allRows, A, B, stdA) {
       <td class="num">${fmtPct(rate)}</td>
       <td class="num">${fmtSec(avg)}</td>
       <td class="num">${fmtSec(obAvg)}</td>
+      <td class="num">${fmtNum(outConn)}</td>
       <td class="num">${fmtSec(acw)}</td>
     </tr>`);
   }
