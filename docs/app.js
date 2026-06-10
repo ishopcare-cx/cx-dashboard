@@ -647,7 +647,7 @@ function renderCall(main) {
   const A = state.periodA, B = state.periodB;
 
   if (state.view === 'voc') {
-    main.innerHTML = '<div class="empty">콜 VOC는 콜라비 상담유형(대/중/소) 추가 수집 후 활성화됩니다.</div>';
+    renderVoc(main, 'call');
     return;
   }
 
@@ -1410,17 +1410,19 @@ function complaintTable(title, aMap, bMap) {
 }
 
 // === VOC 상위탭 (vocstat) — 채널 토글 + 통합 표 ===
-function renderVoc(main) {
+// forceChannel: 'call'|'chat'|null — 콜/채팅 서브탭에서 직접 호출 시 토글 없이 고정
+function renderVoc(main, forceChannel) {
   const voc = state.data.voc || { chat: [], call: [] };
   const A = state.periodA, B = state.periodB;
 
-  // 채널 토글
-  main.appendChild(vocChannelToggle());
+  // 채널 토글 — 상위탭에서만 표시
+  if (!forceChannel) main.appendChild(vocChannelToggle());
 
   // 데이터셋 선택
+  const ch = forceChannel || state.vocChannel;
   let rows;
-  if (state.vocChannel === 'chat') rows = voc.chat;
-  else if (state.vocChannel === 'call') rows = voc.call;
+  if (ch === 'chat') rows = voc.chat;
+  else if (ch === 'call') rows = voc.call;
   else rows = [...voc.chat, ...voc.call];  // 전체 = 합산
 
   // (cat1, cat2) 키별 1·2번 기간 카운트
@@ -1436,8 +1438,7 @@ function renderVoc(main) {
   const topPct = totalA > 0 ? (topCnt / totalA * 100).toFixed(1) : '0.0';
   const topLabel = topName ? `${topName} (${topCnt}건 · ${topPct}%)` : '-';
 
-  const chLabel = state.vocChannel === 'chat' ? '채팅' :
-                  state.vocChannel === 'call' ? '콜' : '전체';
+  const chLabel = ch === 'chat' ? '채팅' : ch === 'call' ? '콜' : '전체';
 
   // 카드
   main.appendChild(makeCardGrid([
