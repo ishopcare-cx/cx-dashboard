@@ -100,6 +100,8 @@ def agent_row(table_row, now=None):
         return None
     now = now or datetime.datetime.now(KST)
     date, agent_id, name = first, table_row[1], table_row[2]
+    if agent_id in config.EXCLUDE_AGENT_IDS:
+        return None
     return [
         f"{date}_{agent_id}",                          # 키
         now.strftime("%Y-%m-%d %H:%M:%S"),
