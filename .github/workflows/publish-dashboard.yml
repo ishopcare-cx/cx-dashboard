@@ -4,6 +4,7 @@ name: publish-dashboard
 # chat 수집(23:30) 다음에 돌도록 23:45 KST. 사이트·빌더 코드 푸시 시에도 갱신.
 on:
   schedule:
+    - cron: '30 10 * * *'        # UTC 10:30 = KST 19:30
     - cron: '45 14 * * *'        # UTC 14:45 = KST 23:45
   workflow_dispatch: {}
   push:
