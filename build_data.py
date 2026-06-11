@@ -189,12 +189,13 @@ def aggregate_call_team(rows):
     cols = {n: _col(h, n) for n in (
         "일자", "총인입", "연결시도", "연결성공", "연결포기", "연결실패",
         "성공률_퍼센트", "평균대기_초", "평균통화_초")}
+    today = datetime.date.today().isoformat()
     out = []
     for r in rows[1:]:
         if len(r) <= cols["일자"]:
             continue
         date = (r[cols["일자"]] or "").strip()
-        if not date:
+        if not date or date > today:
             continue
         rec = {"date": date}
         for k in ("총인입", "연결시도", "연결성공", "연결포기", "연결실패"):
