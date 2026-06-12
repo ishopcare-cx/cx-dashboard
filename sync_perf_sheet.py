@@ -1,8 +1,9 @@
 """창고 raw 탭 → 'CX 퍼포먼스(26.05~)' 시트의 Call Raw 두 탭에 적재.
 
-매일 01시 KST (GitHub Actions cron). 창고에 있는 날짜 전체를 순회하므로
+매일 06:30 KST (GitHub Actions cron). 창고에 있는 날짜 전체를 순회하므로
 토요일·연휴 등 수집 공백이 나중에 채워져도 자동으로 반영된다.
-같은 (일자, 상담원ID) 행은 다시 안 쓴다(중복 방지). 헤더는 손대지 않는다.
+같은 날짜의 기존 행은 삭제 후 재기재(upsert) — 더 최신 수집분으로 덮어씀.
+헤더는 손대지 않는다.
 """
 import datetime
 import logging
@@ -31,40 +32,19 @@ def _read(sheet, tab):
 
 
 def _fmt_date(iso):
-    """'2026-05-28' → '2026. 5. 28' (시트 기존 표기와 동일, 앞자리 0 없음)."""
+    """'2026-05-28' → '2026. 5. 28'."""
     y, m, d = iso.split("-")
     return f"{int(y)}. {int(m)}. {int(d)}"
 
 
 def _norm_date(s):
-    """표시형식 무관하게 'YYYY-MM-DD'로 정규화. '2026. 5. 6'·'2026-05-06' 모두 동일.
-
-    중복 방지 키 비교용 — 탭마다 날짜 표시형식이 달라(ISO vs '2026. 5. 26') 정규화 필요.
-    """
     m = re.match(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", (s or "").strip())
     return f"{int(m[1]):04d}-{int(m[2]):02d}-{int(m[3]):02d}" if m else (s or "").strip()
 
 
-def _table_info(perf, tab):
-    """CX 탭의 (헤더 시작 열 offset, 기존 (날짜|상담원ID) 키 집합).
-
-    데이터가 A가 아닌 B열부터 시작할 수 있어, 헤더 첫 비어있지 않은 셀로 offset 감지.
-    반환 None이면 읽기 실패(안전상 적재 생략).
-    """
-    try:
-        rows = _read(perf, tab)
-    except Exception as e:
-        log.warning("'%s' 읽기 실패 — %s", tab, e)
-        return None
-    if not rows:
-        return 0, set()
-    header = rows[0]
-    off = next((i for i, c in enumerate(header) if (c or "").strip()), 0)
-    keys = set()
-    for r in rows[1:]:
-        if len(r) > off + 1 and (r[off] or "").strip() and (r[off + 1] or "").strip():
-            keys.add(f"{_norm_date(r[off])}|{r[off + 1]}")   # 날짜 정규화 키
-    return off, keys
+def _col_offset(rows):
+    header = rows[0] if rows else []
+    return next((i for i, c in enumerate(header) if (c or "").strip()), 0)
 
 
 def _append(perf, tab, rows, off):
@@ -76,10 +56,6 @@ def _append(perf, tab, rows, off):
 
 
 def _warehouse_dates(rows):
-    """창고 rows(헤더 포함)에서 유니크 날짜(ISO) 목록을 과거→최신 순으로 반환.
-
-    창고 col2(index 2) = 일자(ISO 'YYYY-MM-DD').
-    """
     return sorted({
         r[2].strip()
         for r in rows[1:]
@@ -87,33 +63,68 @@ def _warehouse_dates(rows):
     })
 
 
+def _delete_date_rows(perf, tab, date):
+    """퍼포먼스 시트에서 해당 날짜 행 전부 삭제. 삭제 행수 반환."""
+    meta = perf._api.get(spreadsheetId=perf._id, fields="sheets.properties").execute()
+    sheet_id = next(
+        (s["properties"]["sheetId"] for s in meta["sheets"]
+         if s["properties"]["title"] == tab), None)
+    if sheet_id is None:
+        return 0
+    rows = _read(perf, tab)
+    if not rows:
+        return 0
+    off = _col_offset(rows)
+    to_delete = [
+        i + 2
+        for i, row in enumerate(rows[1:])
+        if len(row) > off and _norm_date(row[off]) == date
+    ]
+    if not to_delete:
+        return 0
+    requests = [
+        {"deleteDimension": {"range": {
+            "sheetId": sheet_id, "dimension": "ROWS",
+            "startIndex": idx - 1, "endIndex": idx,
+        }}}
+        for idx in sorted(to_delete, reverse=True)
+    ]
+    perf._api.batchUpdate(spreadsheetId=perf._id, body={"requests": requests}).execute()
+    return len(to_delete)
+
+
+def _get_offset(perf, tab):
+    """탭 헤더 시작 열 offset. 읽기 실패 시 None."""
+    try:
+        rows = _read(perf, tab)
+    except Exception as e:
+        log.warning("'%s' 읽기 실패 — %s", tab, e)
+        return None
+    return _col_offset(rows)
+
+
 def _sync_tab(src_rows, perf, dst_tab, date):
-    """미리 읽어둔 창고 rows에서 date에 해당하는 행만 골라 dst_tab에 신규만 적재."""
     out = []
     for r in src_rows[1:]:
         if len(r) < 4 or (r[2] or "").strip() != date:
             continue
-        # CX 행 = [날짜(시트형식), 상담원ID, …] = 창고 r[3:] 앞에 날짜
         out.append([_fmt_date(date)] + [(c if c is not None else "") for c in r[3:]])
     if not out:
         log.info("'%s' — %s 데이터 없음, 건너뜀", dst_tab, date)
         return
-    info = _table_info(perf, dst_tab)
-    if info is None:
+    off = _get_offset(perf, dst_tab)
+    if off is None:
         log.warning("'%s' 조회 실패 — 안전을 위해 적재 생략", dst_tab)
         return
-    off, existing = info
-    fresh = [row for row in out if f"{date}|{row[1]}" not in existing]
-    if not fresh:
-        log.info("'%s' — %s 이미 기록됨(중복 없음)", dst_tab, date)
-        return
-    _append(perf, dst_tab, fresh, off)
-    log.info("'%s'(열 %s~) ← %d행 추가 (전체 %d행 중 신규, 대상일 %s)",
-             dst_tab, _col_letter(off), len(fresh), len(out), date)
+    deleted = _delete_date_rows(perf, dst_tab, date)
+    if deleted:
+        log.info("'%s' — %s 기존 %d행 삭제", dst_tab, date, deleted)
+    _append(perf, dst_tab, out, off)
+    log.info("'%s'(열 %s~) ← %d행 기재 (대상일 %s)",
+             dst_tab, _col_letter(off), len(out), date)
 
 
 def main():
-    # 오늘(수집 중인 당일)은 아직 완성되지 않은 데이터일 수 있어 제외.
     today = datetime.datetime.now(KST).date().isoformat()
     log.info("CX 퍼포먼스 시트 연동 시작 (오늘 %s 미만 날짜 전체)", today)
     creds = build_credentials()
