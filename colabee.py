@@ -218,18 +218,22 @@ class Colabee:
         return self._extract_first_table()
 
     def fetch_agent_state_stat(self, date):
-        """CTI 통계 > 상담원 상태 통계 (id=AGENT_STATE_STAT) — 단일 날짜.
+        """CTI 통계 > 상담원 상태 통계 > 기간 분류 탭 — 단일 날짜.
 
-        date: 'YYYY-MM-DD'. COUNSEL_STAT과 동일 UI 가정(dateFrom/dateTo + #reload).
+        date: 'YYYY-MM-DD'. 기간 분류 탭(URL: .../date_stat)에서 dateFrom/dateTo
+        를 같은 날로 설정 후 조회. 기본 탭('오늘')은 날짜 필터가 없어 틀린 데이터를
+        반환하므로 반드시 기간 분류 탭으로 이동해야 한다.
         반환: [헤더, 데이터…] — 가입자명·상담원ID·상담원이름·상담시간·후처리·
         대기시간·다른업무·교육·회의·식사·휴식·자리비움·작업.
         """
-        # COUNSEL_STAT과 동일 — 읽기 직전 항상 재진입(페이지 이동 후 캐싱 불가).
         self._reload_via_js(
             "document.getElementById('AGENT_STATE_STAT').click()", settle_ms=3000)
         if "AGENT_STATE_STAT" not in self._page.url:
             raise RuntimeError(
                 f"AGENT_STATE_STAT 진입 실패 — URL={self._page.url}")
+        # 기간 분류 탭 — 날짜 필터가 있는 탭. 기본 탭('오늘')은 날짜 무시.
+        if "date_stat" not in self._page.url:
+            self._click("기간 분류", settle_ms=1500)
 
         self._page.evaluate("""(d) => {
             for (const id of ['dateFrom', 'dateTo']) {
