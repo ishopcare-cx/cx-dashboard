@@ -36,7 +36,7 @@ log = logging.getLogger(__name__)
 
 # 매 수집마다 오늘 포함 최근 (BACKFILL_DAYS+1)일을 재수집 → 주말·연휴·실패 갭 보강.
 # 평일 수집이라 보통 토·일 2일 갭 → 3이면 3일 연휴(화요일 첫 수집)까지 커버.
-BACKFILL_DAYS = 4
+BACKFILL_DAYS = 3
 # 월초 이 기간(일)엔 수신통계 전월분도 함께 수집 → 월말 주말 영구누락 방지.
 MONTH_OVERLAP_DAYS = 4
 
