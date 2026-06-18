@@ -1263,15 +1263,20 @@ const pieOutLabels = {
     });
 
     // 좌/우로 나눠 라벨 y 충돌 해소 (위아래 분산)
-    const LH = 32;
+    const LH = 36;
     const topB = (chartArea ? chartArea.top : 4) + 8;
     const botB = (chartArea ? chartArea.bottom : chart.height) - 8;
     ['right', 'left'].forEach((side) => {
       const arr = items.filter((it) => it.right === (side === 'right'));
       arr.sort((a, b) => a.idealY - b.idealY);
       arr.forEach((it) => { it.labelY = it.idealY; });
+      // 위→아래 패스
       for (let k = 1; k < arr.length; k++) {
         if (arr[k].labelY < arr[k - 1].labelY + LH) arr[k].labelY = arr[k - 1].labelY + LH;
+      }
+      // 아래→위 패스 (역방향 겹침 해소)
+      for (let k = arr.length - 2; k >= 0; k--) {
+        if (arr[k].labelY > arr[k + 1].labelY - LH) arr[k].labelY = arr[k + 1].labelY - LH;
       }
       if (arr.length) {
         const over = arr[arr.length - 1].labelY - botB;
