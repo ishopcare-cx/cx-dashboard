@@ -104,7 +104,7 @@ class Colabee:
         반환: [헤더행, 데이터행…, 소계·합계행]. 소계·합계는 호출측이 거른다.
         """
         self._click("CTI 통계")
-        self._click("상담원별통계", settle_ms=2500)
+        self._click("상담원별통계", settle_ms=5000)
         self._click("일별 통계", settle_ms=2500)
         if date:
             self._set_date_and_reload(date)
@@ -198,6 +198,15 @@ class Colabee:
         # COUNSEL_STAT은 읽기 직전 항상 재진입해야 한다(캐싱 시 엉뚱한 표를 읽음).
         self._reload_via_js(
             "document.getElementById('COUNSEL_STAT').click()", settle_ms=3000)
+        if "COUNSEL_STAT" not in self._page.url:
+            # getElementById 실패 시 텍스트 클릭으로 폴백
+            for label in ("상담통계", "COUNSEL_STAT", "상담 통계"):
+                try:
+                    self._click(label, settle_ms=3000)
+                    if "COUNSEL_STAT" in self._page.url:
+                        break
+                except Exception:
+                    continue
         if "COUNSEL_STAT" not in self._page.url:
             raise RuntimeError(f"COUNSEL_STAT 진입 실패 — URL={self._page.url}")
 
