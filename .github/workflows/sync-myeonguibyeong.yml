@@ -1,0 +1,52 @@
+name: sync-myeonguibyeong
+
+on:
+  schedule:
+    # 평일 KST 09:00~19:00 매 30분 (UTC 00:00~10:00)
+    - cron: '0  0 * * 1-5'
+    - cron: '30 0 * * 1-5'
+    - cron: '0  1 * * 1-5'
+    - cron: '30 1 * * 1-5'
+    - cron: '0  2 * * 1-5'
+    - cron: '30 2 * * 1-5'
+    - cron: '0  3 * * 1-5'
+    - cron: '30 3 * * 1-5'
+    - cron: '0  4 * * 1-5'
+    - cron: '30 4 * * 1-5'
+    - cron: '0  5 * * 1-5'
+    - cron: '30 5 * * 1-5'
+    - cron: '0  6 * * 1-5'
+    - cron: '30 6 * * 1-5'
+    - cron: '0  7 * * 1-5'
+    - cron: '30 7 * * 1-5'
+    - cron: '0  8 * * 1-5'
+    - cron: '30 8 * * 1-5'
+    - cron: '0  9 * * 1-5'
+    - cron: '30 9 * * 1-5'
+    - cron: '0 10 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install \
+            requests==2.32.3 \
+            google-auth==2.35.0 \
+            google-api-python-client==2.149.0
+
+      - name: Run sync
+        env:
+          GOOGLE_OAUTH_CLIENT_ID:     ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+          SLACK_BOT_TOKEN:            ${{ secrets.SLACK_BOT_TOKEN }}
+        run: python sync_myeonguibyeong.py
