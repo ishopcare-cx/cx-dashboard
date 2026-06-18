@@ -1,0 +1,46 @@
+name: sync-notion
+
+# 오처리·누락 접수 구글시트 → 노션 DB 증분 동기화.
+# 평일 09:07~19:07 매시간 실행.
+on:
+  schedule:
+    - cron: '7 0 * * 1-5'   # KST 09:07
+    - cron: '7 1 * * 1-5'   # KST 10:07
+    - cron: '7 2 * * 1-5'   # KST 11:07
+    - cron: '7 3 * * 1-5'   # KST 12:07
+    - cron: '7 4 * * 1-5'   # KST 13:07
+    - cron: '7 5 * * 1-5'   # KST 14:07
+    - cron: '7 6 * * 1-5'   # KST 15:07
+    - cron: '7 7 * * 1-5'   # KST 16:07
+    - cron: '7 8 * * 1-5'   # KST 17:07
+    - cron: '7 9 * * 1-5'   # KST 18:07
+    - cron: '7 10 * * 1-5'  # KST 19:07
+  workflow_dispatch: {}
+
+concurrency:
+  group: sync-notion
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install requests==2.32.3 google-auth==2.35.0 google-api-python-client==2.149.0
+
+      - name: Sync 구글시트 → 노션
+        env:
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: python sync_notion.py
