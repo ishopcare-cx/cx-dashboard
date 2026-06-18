@@ -5,9 +5,10 @@ on:
   schedule:
     - cron: '0 3 * * *'              # KST 12:00 매일
     - cron: '0 6 * * *'              # KST 15:00 매일
-    - cron: '20 9 * * *'             # KST 18:20 매일
-    - cron: '0 10 * * *'             # KST 19:00 매일
-    - cron: '0 21 * * *'             # KST 06:00 매일 (UTC 전날 21:00)
+    - cron: '0 9 * * *'              # KST 18:00 매일
+    - cron: '0 11 * * *'             # KST 20:00 매일
+    - cron: '0 14 * * *'             # KST 23:00 매일
+    - cron: '0 16 * * *'             # KST 01:00 매일
   workflow_dispatch:
     inputs:
       days:
