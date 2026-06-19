@@ -1284,6 +1284,15 @@ const pieOutLabels = {
         const under = topB - arr[0].labelY;
         if (under > 0) arr.forEach((it) => { it.labelY += under; });
       }
+      // 항목이 3개 이상이고 가용 높이의 55% 미만에 몰려있으면 균등 분산
+      if (arr.length >= 3) {
+        const span = arr[arr.length - 1].labelY - arr[0].labelY;
+        const avail = botB - topB;
+        if (span < avail * 0.55) {
+          const step = avail / (arr.length + 1);
+          arr.forEach((it, k) => { it.labelY = topB + step * (k + 1); });
+        }
+      }
     });
 
     // 지시선 + 라벨 (이름·% 동일 14px). 좌/우 컬럼 정렬.
@@ -1459,7 +1468,7 @@ function renderVoc(main, forceChannel) {
     cat1Raw[c2] = (cat1Raw[c2] || 0) + aggA[k];
   }
   const cat1Sorted = Object.entries(cat1Raw).sort((a, b) => b[1] - a[1]);
-  const VOC_PIE_TOPN = 10;
+  const VOC_PIE_TOPN = 7;
   const cat1A = {};
   cat1Sorted.slice(0, VOC_PIE_TOPN).forEach(([k, v]) => { cat1A[k] = v; });
   const etcDetails = cat1Sorted.slice(VOC_PIE_TOPN); // 기타 세부항목 (패널용, 파이엔 미표시)
@@ -1471,7 +1480,7 @@ function renderVoc(main, forceChannel) {
       <div class="panel" style="width:100%;">
         <h2>VOC 중분류 분포 — ${chLabel} (이번 기간)</h2>
         <div class="pie-flex-wrap">
-          <div class="chart-wrap" style="height:600px;"><canvas id="voc-pie"></canvas></div>
+          <div class="chart-wrap" style="height:700px;"><canvas id="voc-pie"></canvas></div>
           <div id="voc-etc-panel" hidden></div>
         </div>
       </div>`;
