@@ -572,7 +572,7 @@ function renderChat(main) {
   const A = state.periodA, B = state.periodB;
 
   if (state.view === 'voc') {
-    main.appendChild(vocPanel(d.voc_by_date, A, B, 30));
+    renderVoc(main, 'chat');
     return;
   }
 
