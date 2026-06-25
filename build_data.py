@@ -103,6 +103,7 @@ def aggregate_chat(rows):
     """팀 일집계(생성일) + VOC(생성일) + 상담사 귀속(태그 날짜) 평탄화."""
     h = rows[0]
     ci_created = _col(h, "생성일")
+    ci_first_replied_dt = _col(h, "첫응대시각")
     ci_reply_count = _col(h, "응답수")
     ci_fw = _col(h, "첫응대시간_초")
     ci_ar = _col(h, "평균응답시간_초")
@@ -141,17 +142,26 @@ def aggregate_chat(rows):
         voc = (r[ci_voc] or "").strip() if 0 <= ci_voc < len(r) else ""
         agent_tag_str = (r[ci_agent_tag] or "").strip() if 0 <= ci_agent_tag < len(r) else ""
 
-        # 팀 (생성일 기준)
-        b = by_date[created]
-        b["인입"] += 1
-        if reply_count > 0:
+        # 첫응대시각 → 날짜 추출
+        first_replied_date = ""
+        if 0 <= ci_first_replied_dt < len(r):
+            v = (r[ci_first_replied_dt] or "").strip()
+            if len(v) >= 10:
+                first_replied_date = v[:10]
+
+        # 인입: 생성일 기준
+        by_date[created]["인입"] += 1
+
+        # 응대·시간 지표: 첫응대시각 날짜 기준
+        if first_replied_date and reply_count > 0:
+            b = by_date[first_replied_date]
             b["응대"] += 1
-        if fw is not None:
-            b["첫응대_sum"] += fw; b["첫응대_n"] += 1
-        if ar is not None:
-            b["응답_sum"] += ar; b["응답_n"] += 1
-        if res is not None:
-            b["처리_sum"] += res; b["처리_n"] += 1
+            if fw is not None:
+                b["첫응대_sum"] += fw; b["첫응대_n"] += 1
+            if ar is not None:
+                b["응답_sum"] += ar; b["응답_n"] += 1
+            if res is not None:
+                b["처리_sum"] += res; b["처리_n"] += 1
 
         # VOC (생성일 기준)
         for tag in (voc.split(";") if voc else []):
