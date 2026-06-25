@@ -48,5 +48,5 @@ jobs:
           GOOGLE_OAUTH_CLIENT_ID:     ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-          SLACK_BOT_TOKEN:            ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_BOT_TOKEN:            ${{ secrets.SLACK_USER_TOKEN }}
         run: python sync_myeonguibyeong.py
