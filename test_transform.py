@@ -60,25 +60,27 @@ def test_chat_to_row():
         "firstRepliedAtAfterOpen": 1779445731134,
         "assigneeId": "M1",
         "tags": ["주문/청약", "0522지은"],
+        "operationWaitingTime": 10586455,
         "operationAvgReplyTime": 3535358,
         "operationResolutionTime": 5406046,
         "replyCount": 3,
     }
     # 헤더: 수집일시,채팅ID,생성일,생성일시,종료일,상태,담당자,스쿼드,
     #       첫응대시각,첫응대시간_초,평균응답시간_초,처리시간_초,응답수,
-    #       VOC태그,상담사태그,기타태그,배정일시
+    #       VOC태그,상담사태그,기타태그,배정일시,배정응답시간_초
     row = chat_to_row(chat, {"M1": "노지은"})
-    assert len(row) == 17
+    assert len(row) == 18
     assert row[1] == "abc123"
     assert row[5] == "closed"
     assert row[6] == "노지은"
     assert row[7] == "CX 2"
-    assert row[9] == 10586          # (firstRepliedAtAfterOpen-firstOpenedAt)ms → 10586초
+    assert row[9] == 10586          # 첫응대시간_초(팀) = operationWaitingTime(문의→첫응답)
     assert row[12] == 3
     assert row[13] == "주문/청약"
     assert row[14] == "0522지은"
     assert row[15] == ""
     assert row[16] != ""            # 배정일시 채워짐
+    assert row[17] == 10586         # 배정응답시간_초(개인) = firstRepliedAtAfterOpen-firstOpenedAt
 
 
 def test_chat_to_row_missing_fields():
@@ -87,9 +89,10 @@ def test_chat_to_row_missing_fields():
     assert row[1] == "x"
     assert row[6] == ""             # 담당자 없음
     assert row[7] == "기타"
-    assert row[9] == ""             # 첫응대시간 없음(미배정/미응대)
+    assert row[9] == ""             # 첫응대시간 없음(미응대)
     assert row[12] == ""            # 응답수 없음
     assert row[16] == ""            # 배정일시 없음
+    assert row[17] == ""            # 배정응답시간 없음
 
 
 if __name__ == "__main__":

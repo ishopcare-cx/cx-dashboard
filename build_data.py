@@ -1,13 +1,16 @@
 """대시보드용 JSON 빌더 — 시트 3탭 → docs/data.json.
 
 채팅(chat_raw):
- - 팀 일집계: 생성일 기준 (시스템 인입 시점).
+ - 팀 일집계: 생성일 기준 (채널톡 상담통계와 동일 — 응대량=전체상담이라
+   인입과 응대가 항상 같다. 시간 지표(첫응대_초=operationWaitingTime,
+   문의→첫응답)도 생성일 버킷에 함께 집계).
  - VOC: 생성일 기준.
- - 상담사 귀속: config.TAG_FORMAT_CUTOVER(2026-06-29) 이전은
+ - 상담사 귀속(개인 실적): config.TAG_FORMAT_CUTOVER(2026-06-29) 이전은
    **상담사태그(날짜+이름)의 태그 날짜** 기준, 이후는 **이름태그 +
    배정일(첫 오픈일)** 기준 — 태그 형식이 바뀌었다(parse_agent_tag /
-   config.ALL_AGENT_NAMES 참고). per-chat 값을 평탄화 리스트로 출력 →
-   브라우저에서 중앙값 계산.
+   config.ALL_AGENT_NAMES 참고). 개인 첫응대시간은 배정응답시간_초
+   (배정→첫응답 기준) — 팀 지표(문의→첫응답)와 기준점이 다르다.
+   per-chat 값을 평탄화 리스트로 출력 → 브라우저에서 중앙값 계산.
 
 콜(call_team_daily): 일자별 팀 통계 그대로.
 콜(call_daily): 일자×상담원 → 스쿼드별 일집계도 함께 산출.
@@ -105,9 +108,8 @@ def aggregate_chat(rows):
     """팀 일집계(생성일) + VOC(생성일) + 상담사 귀속(태그날짜/배정일) 평탄화."""
     h = rows[0]
     ci_created = _col(h, "생성일")
-    ci_first_replied_dt = _col(h, "첫응대시각")
-    ci_reply_count = _col(h, "응답수")
-    ci_fw = _col(h, "첫응대시간_초")
+    ci_fw = _col(h, "첫응대시간_초")            # 팀 지표: 문의→첫응답
+    ci_fw_personal = _col(h, "배정응답시간_초")  # 개인 지표: 배정→첫응답
     ci_ar = _col(h, "평균응답시간_초")
     ci_res = _col(h, "처리시간_초")
     ci_voc = _col(h, "VOC태그")
@@ -138,8 +140,8 @@ def aggregate_chat(rows):
         created = (r[ci_created] or "").strip()
         if not created:
             continue
-        reply_count = _int(r[ci_reply_count]) if 0 <= ci_reply_count < len(r) else 0
         fw = _cell_int_or_none(r, ci_fw)
+        fw_personal = _cell_int_or_none(r, ci_fw_personal)
         ar = _cell_int_or_none(r, ci_ar)
         res = _cell_int_or_none(r, ci_res)
         voc = (r[ci_voc] or "").strip() if 0 <= ci_voc < len(r) else ""
@@ -147,26 +149,17 @@ def aggregate_chat(rows):
         assigned_dt = (r[ci_assigned_dt] or "").strip() if 0 <= ci_assigned_dt < len(r) else ""
         assigned_date = assigned_dt[:10] if len(assigned_dt) >= 10 else ""
 
-        # 첫응대시각 → 날짜 추출
-        first_replied_date = ""
-        if 0 <= ci_first_replied_dt < len(r):
-            v = (r[ci_first_replied_dt] or "").strip()
-            if len(v) >= 10:
-                first_replied_date = v[:10]
-
-        # 인입: 생성일 기준
-        by_date[created]["인입"] += 1
-
-        # 응대·시간 지표: 첫응대시각 날짜 기준
-        if first_replied_date and reply_count > 0:
-            b = by_date[first_replied_date]
-            b["응대"] += 1
-            if fw is not None:
-                b["첫응대_sum"] += fw; b["첫응대_n"] += 1
-            if ar is not None:
-                b["응답_sum"] += ar; b["응답_n"] += 1
-            if res is not None:
-                b["처리_sum"] += res; b["처리_n"] += 1
+        # 인입=응대(전체상담) — 채널톡 상담통계와 동일하게 생성일 기준,
+        # 응답 여부와 무관하게 전량 카운트.
+        b = by_date[created]
+        b["인입"] += 1
+        b["응대"] += 1
+        if fw is not None:
+            b["첫응대_sum"] += fw; b["첫응대_n"] += 1
+        if ar is not None:
+            b["응답_sum"] += ar; b["응답_n"] += 1
+        if res is not None:
+            b["처리_sum"] += res; b["처리_n"] += 1
 
         # VOC (생성일 기준)
         for tag in (voc.split(";") if voc else []):
@@ -196,7 +189,7 @@ def aggregate_chat(rows):
                     "date": tag_date,
                     "agent": full,
                     "squad": squad_of(full),
-                    "fw": fw, "ar": ar, "res": res,
+                    "fw": fw_personal, "ar": ar, "res": res,
                 })
 
     return {

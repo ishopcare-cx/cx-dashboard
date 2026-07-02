@@ -66,11 +66,11 @@ def _secs(ms):
     return round(ms / 1000)
 
 
-def _first_response_secs(chat):
-    """첫응대시간 = 배정(firstOpenedAt) → 첫응답(firstRepliedAtAfterOpen).
+def _assigned_response_secs(chat):
+    """배정응답시간 = 배정(firstOpenedAt) → 첫응답(firstRepliedAtAfterOpen).
 
     큐 대기시간을 뺀, 담당자가 채팅을 받은 뒤 실제로 응답하기까지의
-    시간. 둘 중 하나라도 없으면(미배정/미응대) ''.
+    시간 — 상담사별(개인) 지표 전용. 둘 중 하나라도 없으면(미배정/미응대) ''.
     """
     opened = chat.get("firstOpenedAt")
     replied = chat.get("firstRepliedAtAfterOpen")
@@ -83,9 +83,10 @@ def chat_to_row(chat, manager_names, collected_at=None):
     """user-chat 객체 → chat_raw 행(리스트). config.CHAT_HEADER 순서.
 
     manager_names: {managerId: name}
-    첫응대시간_초는 배정(firstOpenedAt)~첫응답(firstRepliedAtAfterOpen) 기준
-    (_first_response_secs 참고). 평균응답시간·처리시간은 'operation~'
-    (미운영시간 제외) 필드를 쓴다 — 채널톡 상담별 통계 화면과 같은 기준.
+    시간 지표는 'operation~'(미운영시간 제외) 필드를 쓴다 — 채널톡
+    상담통계 화면과 같은 기준(전체/팀 지표용). 상담사별(개인) 지표는
+    배정응답시간_초(_assigned_response_secs, 배정→첫응답 기준)를 따로 쓴다
+    — 팀 지표(문의→첫응답)와 기준점이 다르다.
     """
     collected_at = collected_at or datetime.datetime.now(KST)
     created = _ms_to_kst(chat.get("createdAt"))
@@ -105,7 +106,7 @@ def chat_to_row(chat, manager_names, collected_at=None):
         assignee,
         squad_of(assignee),
         _dt_str(first_replied),
-        _first_response_secs(chat),
+        _secs(chat.get("operationWaitingTime")),
         _secs(chat.get("operationAvgReplyTime")),
         _secs(chat.get("operationResolutionTime")),
         reply_count if reply_count is not None else "",
@@ -113,4 +114,5 @@ def chat_to_row(chat, manager_names, collected_at=None):
         "; ".join(agent),
         "; ".join(etc),
         _dt_str(first_opened),
+        _assigned_response_secs(chat),
     ]
