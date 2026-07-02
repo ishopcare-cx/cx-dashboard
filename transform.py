@@ -26,7 +26,8 @@ def classify_tags(tags):
     """태그 목록 → (VOC, 상담사, 기타) 세 리스트.
 
     - VOC   : '/' 포함 (대분류/소분류)
-    - 상담사 : 날짜+이름 형태 (예: 0522지은, 소현0522)
+    - 상담사 : 날짜+이름 형태(예: 0522지은, 소현0522, ~2026-06-28) 또는
+               이름만(예: 노지은, 백합 — 2026-06-29부터 새 형식)
     - 기타   : 그 외
     """
     voc, agent, etc = [], [], []
@@ -36,7 +37,7 @@ def classify_tags(tags):
             continue
         if "/" in t:
             voc.append(t)
-        elif _DATE_TAG.match(t):
+        elif _DATE_TAG.match(t) or t in config.ALL_AGENT_NAMES:
             agent.append(t)
         else:
             etc.append(t)
@@ -65,17 +66,32 @@ def _secs(ms):
     return round(ms / 1000)
 
 
+def _first_response_secs(chat):
+    """첫응대시간 = 배정(firstOpenedAt) → 첫응답(firstRepliedAtAfterOpen).
+
+    큐 대기시간을 뺀, 담당자가 채팅을 받은 뒤 실제로 응답하기까지의
+    시간. 둘 중 하나라도 없으면(미배정/미응대) ''.
+    """
+    opened = chat.get("firstOpenedAt")
+    replied = chat.get("firstRepliedAtAfterOpen")
+    if not opened or not replied:
+        return ""
+    return _secs(replied - opened)
+
+
 def chat_to_row(chat, manager_names, collected_at=None):
     """user-chat 객체 → chat_raw 행(리스트). config.CHAT_HEADER 순서.
 
     manager_names: {managerId: name}
-    시간 지표는 'operation~'(미운영시간 제외) 필드를 쓴다 — 채널톡 상담별
-    통계 화면과 같은 기준.
+    첫응대시간_초는 배정(firstOpenedAt)~첫응답(firstRepliedAtAfterOpen) 기준
+    (_first_response_secs 참고). 평균응답시간·처리시간은 'operation~'
+    (미운영시간 제외) 필드를 쓴다 — 채널톡 상담별 통계 화면과 같은 기준.
     """
     collected_at = collected_at or datetime.datetime.now(KST)
     created = _ms_to_kst(chat.get("createdAt"))
     closed = _ms_to_kst(chat.get("closedAt"))
     first_replied = _ms_to_kst(chat.get("firstRepliedAt"))
+    first_opened = _ms_to_kst(chat.get("firstOpenedAt"))
     assignee = manager_names.get(chat.get("assigneeId"), "")
     voc, agent, etc = classify_tags(chat.get("tags"))
     reply_count = chat.get("replyCount")
@@ -89,11 +105,12 @@ def chat_to_row(chat, manager_names, collected_at=None):
         assignee,
         squad_of(assignee),
         _dt_str(first_replied),
-        _secs(chat.get("operationWaitingTime")),
+        _first_response_secs(chat),
         _secs(chat.get("operationAvgReplyTime")),
         _secs(chat.get("operationResolutionTime")),
         reply_count if reply_count is not None else "",
         "; ".join(voc),
         "; ".join(agent),
         "; ".join(etc),
+        _dt_str(first_opened),
     ]

@@ -3,9 +3,11 @@
 채팅(chat_raw):
  - 팀 일집계: 생성일 기준 (시스템 인입 시점).
  - VOC: 생성일 기준.
- - 상담사 귀속: **상담사태그(날짜+이름)의 날짜 기준** — 전일 채팅을 당일
-   응대했어도 상담사 당일 실적으로 잡힘(채널톡 상담별 통계와 일치).
-   per-chat 값을 평탄화 리스트로 출력 → 브라우저에서 중앙값 계산.
+ - 상담사 귀속: config.TAG_FORMAT_CUTOVER(2026-06-29) 이전은
+   **상담사태그(날짜+이름)의 태그 날짜** 기준, 이후는 **이름태그 +
+   배정일(첫 오픈일)** 기준 — 태그 형식이 바뀌었다(parse_agent_tag /
+   config.ALL_AGENT_NAMES 참고). per-chat 값을 평탄화 리스트로 출력 →
+   브라우저에서 중앙값 계산.
 
 콜(call_team_daily): 일자별 팀 통계 그대로.
 콜(call_daily): 일자×상담원 → 스쿼드별 일집계도 함께 산출.
@@ -100,7 +102,7 @@ def parse_agent_tag(tag, default_year):
 
 # ── 채팅 집계 ──────────────────────────────────────────────────
 def aggregate_chat(rows):
-    """팀 일집계(생성일) + VOC(생성일) + 상담사 귀속(태그 날짜) 평탄화."""
+    """팀 일집계(생성일) + VOC(생성일) + 상담사 귀속(태그날짜/배정일) 평탄화."""
     h = rows[0]
     ci_created = _col(h, "생성일")
     ci_first_replied_dt = _col(h, "첫응대시각")
@@ -110,6 +112,7 @@ def aggregate_chat(rows):
     ci_res = _col(h, "처리시간_초")
     ci_voc = _col(h, "VOC태그")
     ci_agent_tag = _col(h, "상담사태그")
+    ci_assigned_dt = _col(h, "배정일시")
 
     def _team_zero():
         return {"인입": 0, "응대": 0,
@@ -141,6 +144,8 @@ def aggregate_chat(rows):
         res = _cell_int_or_none(r, ci_res)
         voc = (r[ci_voc] or "").strip() if 0 <= ci_voc < len(r) else ""
         agent_tag_str = (r[ci_agent_tag] or "").strip() if 0 <= ci_agent_tag < len(r) else ""
+        assigned_dt = (r[ci_assigned_dt] or "").strip() if 0 <= ci_assigned_dt < len(r) else ""
+        assigned_date = assigned_dt[:10] if len(assigned_dt) >= 10 else ""
 
         # 첫응대시각 → 날짜 추출
         first_replied_date = ""
@@ -169,14 +174,24 @@ def aggregate_chat(rows):
             if tag and "/" in tag:
                 voc_by_date[created][tag] += 1
 
-        # 상담사 귀속 (태그 날짜 기준 — 핵심)
+        # 상담사 귀속 — 핵심.
+        # 2026-06-29 이전: '날짜+이름' 태그, 태그에 박힌 날짜로 귀속.
+        # 2026-06-29 이후: '이름만' 태그, 배정일(배정일시 날짜)로 귀속.
         if agent_tag_str:
-            year = created[:4]
+            use_new_format = created >= config.TAG_FORMAT_CUTOVER
             for tag in agent_tag_str.split(";"):
-                parsed = parse_agent_tag(tag, year)
-                if not parsed:
+                tag = tag.strip()
+                if not tag:
                     continue
-                full, tag_date = parsed
+                if use_new_format:
+                    if tag not in config.ALL_AGENT_NAMES or not assigned_date:
+                        continue
+                    full, tag_date = tag, assigned_date
+                else:
+                    parsed = parse_agent_tag(tag, created[:4])
+                    if not parsed:
+                        continue
+                    full, tag_date = parsed
                 agent_chats.append({
                     "date": tag_date,
                     "agent": full,
