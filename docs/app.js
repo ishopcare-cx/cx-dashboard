@@ -628,6 +628,9 @@ function renderChat(main) {
       // 일별 추이 (해당 상담사)
       const trend = aggAgentChatTrend(d.agent_chats, A, B, state.agent);
       main.appendChild(trendPanel(trend, `${state.agent} 일별 응대 추이`, ['응대'], A, B));
+      // 일자별 지표 표 (기간에 날짜 2개 이상일 때만)
+      const dailyTable = agentDetailDailyTable('chat', state.agent, A);
+      if (dailyTable) main.appendChild(dailyTable);
       return;
     }
     // 전체 상담사 표
@@ -728,6 +731,9 @@ function renderCall(main) {
         { label: '후처리(합)', value: fmtSec(ma.후처리), prev: fmtSec(mb.후처리), d: delta(ma.후처리, mb.후처리), invert: true },
       ];
       main.appendChild(makeCardGrid(cards));
+      // 일자별 지표 표 (기간에 날짜 2개 이상일 때만)
+      const dailyTable = agentDetailDailyTable('call', state.agent, A);
+      if (dailyTable) main.appendChild(dailyTable);
       return;
     }
     // 전체 표 — single 모드에선 활성자 카드 한 줄 먼저
@@ -1095,6 +1101,55 @@ function dailyCallTable(rows, A, B) {
   </tr>`);
   return tablePanel(`${periodLabelKo(A)} — 일자별 콜 (팀 전체)`,
     ['일자', '총인입', '연결시도', '연결성공', '연결포기', '성공률', '평균대기', '평균통화'], html);
+}
+
+// 상담사 상세 — 일자별 지표(지표=행, 날짜=열, 맨 오른쪽=합계). 기간에
+// 날짜가 2개 이상일 때만 표시(하루면 카드로 충분).
+function agentDetailDailyTable(type, agent, A) {
+  const d = state.data;
+  const dateSet = new Set();
+  if (type === 'call') {
+    for (const r of d.call.agent_by_date) if (r.agent === agent && inRange(r.date, A)) dateSet.add(r.date);
+  } else {
+    for (const r of d.chat.agent_chats) if (r.agent === agent && inRange(r.date, A)) dateSet.add(r.date);
+  }
+  const dateList = Array.from(dateSet).sort();
+  if (dateList.length < 2) return null;
+
+  let metrics;
+  if (type === 'call') {
+    const perDay = dateList.map(dt => aggCallAgentRow(d.call.agent_by_date, { start: dt, end: dt }, { agent }));
+    const total = aggCallAgentRow(d.call.agent_by_date, A, { agent });
+    metrics = [
+      { label: '수신연결', vals: perDay.map(m => m.수신연결), tot: total.수신연결, fmt: fmtNum },
+      { label: 'IB평균통화', vals: perDay.map(m => m.평균통화), tot: total.평균통화, fmt: fmtSec },
+      { label: '발신연결', vals: perDay.map(m => m.발신연결), tot: total.발신연결, fmt: fmtNum },
+      { label: 'OB평균통화', vals: perDay.map(m => m.발신평균통화), tot: total.발신평균통화, fmt: fmtSec },
+      { label: '후처리', vals: perDay.map(m => m.후처리), tot: total.후처리, fmt: fmtSec },
+    ];
+  } else {
+    const perDay = dateList.map(dt => aggChatAgent(d.chat.agent_chats, { start: dt, end: dt }, { agent }));
+    const total = aggChatAgent(d.chat.agent_chats, A, { agent });
+    metrics = [
+      { label: '응대', vals: perDay.map(m => m.응대), tot: total.응대, fmt: fmtNum },
+      { label: '첫응대', vals: perDay.map(m => m.첫응대), tot: total.첫응대, fmt: fmtSec },
+      { label: '응답', vals: perDay.map(m => m.응답), tot: total.응답, fmt: fmtSec },
+      { label: '처리', vals: perDay.map(m => m.처리), tot: total.처리, fmt: fmtSec },
+    ];
+  }
+
+  const head = ['지표', ...dateList.map(fmtDateShort), '합계'].map(h => `<th>${h}</th>`).join('');
+  const body = metrics.map(m => {
+    const cells = m.vals.map(v => `<td class="num">${m.fmt(v)}</td>`).join('');
+    return `<tr><td>${m.label}</td>${cells}<td class="num mx-sum">${m.fmt(m.tot)}</td></tr>`;
+  }).join('');
+
+  const div = document.createElement('div');
+  div.className = 'ins-matrix';
+  div.innerHTML = `<h4>📅 ${agent} 일자별 상세</h4>
+    <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+    <small class="ins-legend">맨 오른쪽 합계: 기간 누적(건수는 합, 시간은 기간 전체 기준 ${type === 'chat' ? '중앙값' : '평균'})</small>`;
+  return div;
 }
 
 // 상담사별 일별 추이
