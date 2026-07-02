@@ -1,7 +1,24 @@
 """구글 시트 API v4 래퍼 — 탭 보장·컬럼 읽기·채팅ID 기준 upsert."""
 import logging
+import time
+
+from googleapiclient.errors import HttpError
 
 log = logging.getLogger(__name__)
+
+
+def _execute_with_backoff(request, max_retries=5):
+    """쓰기 쿼터(429, 분당 60회/유저) 초과 시 지수 백오프 재시도."""
+    for attempt in range(max_retries):
+        try:
+            return request.execute()
+        except HttpError as e:
+            if e.resp.status == 429 and attempt < max_retries - 1:
+                wait = 2 ** attempt
+                log.info("429 write quota exceeded — %ds 대기 후 재시도", wait)
+                time.sleep(wait)
+                continue
+            raise
 
 
 def _col_letter(index: int) -> str:
@@ -41,18 +58,18 @@ class Sheet:
         sheets = meta.get("sheets", [])
         titles = [s["properties"]["title"] for s in sheets]
         if title not in titles:
-            self._api.batchUpdate(spreadsheetId=self._id, body={
+            _execute_with_backoff(self._api.batchUpdate(spreadsheetId=self._id, body={
                 "requests": [{"addSheet": {"properties": {"title": title}}}],
-            }).execute()
+            }))
             log.info("탭 '%s' 생성", title)
         # 헤더 보장
         got = self._api.values().get(
             spreadsheetId=self._id, range=f"'{title}'!1:1").execute()
         if (got.get("values") or [[]])[0] != header:
-            self._api.values().update(
+            _execute_with_backoff(self._api.values().update(
                 spreadsheetId=self._id, range=f"'{title}'!A1",
                 valueInputOption="USER_ENTERED",
-                body={"values": [header]}).execute()
+                body={"values": [header]}))
             log.info("헤더 기록")
 
     def _read_column(self, title, col_index):
@@ -89,14 +106,16 @@ class Sheet:
                 appends.append(row)
 
         for i in range(0, len(updates), 200):
-            self._api.values().batchUpdate(
+            if i:
+                time.sleep(1.1)  # 분당 60회 쓰기 쿼터 아래로 유지
+            _execute_with_backoff(self._api.values().batchUpdate(
                 spreadsheetId=self._id,
                 body={"valueInputOption": "USER_ENTERED",
-                      "data": updates[i:i + 200]}).execute()
+                      "data": updates[i:i + 200]}))
         if appends:
-            self._api.values().append(
+            _execute_with_backoff(self._api.values().append(
                 spreadsheetId=self._id, range=f"'{title}'!A1",
                 valueInputOption="USER_ENTERED",
                 insertDataOption="INSERT_ROWS",
-                body={"values": appends}).execute()
+                body={"values": appends}))
         return len(updates), len(appends)
