@@ -4,6 +4,8 @@ name: collect-call-request
 # PC 폴링 스크립트가 이 워크플로의 최신 실행 시각을 보고
 # 새 요청 감지 시 PC에서 collect_call.py 실행 (회사 IP 제약).
 on:
+  schedule:
+    - cron: '0 21 * * *'    # KST 06:00 매일 — 기존 Claude 루틴 트리거를 대체
   workflow_dispatch:
 
 jobs:
