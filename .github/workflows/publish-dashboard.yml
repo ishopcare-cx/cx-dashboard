@@ -3,6 +3,8 @@ name: publish-dashboard
 # 시트 → docs/data.json 갱신 → 커밋 → GitHub Pages 자동 배포.
 # chat 수집(23:30) 다음에 돌도록 23:45 KST. 사이트·빌더 코드 푸시 시에도 갱신.
 on:
+  schedule:
+    - cron: '0 11 * * 1-5'    # KST 20:00 평일 — 기존 Claude 루틴 트리거를 대체
   workflow_dispatch: {}
   push:
     branches: [main]
