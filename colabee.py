@@ -25,7 +25,7 @@ class Colabee:
 
     def __enter__(self):
         self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(headless=self.headless)
+        self._browser = self._pw.chromium.launch(headless=self.headless, channel="chrome")
         self._ctx = self._browser.new_context(
             ignore_https_errors=True,
             viewport={"width": 1920, "height": 1200},
