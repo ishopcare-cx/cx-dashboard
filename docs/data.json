@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-26T01:53:58.091605+09:00",
+  "generated_at": "2026-07-26T14:55:11.386329+09:00",
   "squads": [
     "CX 1",
     "CX 2",
@@ -1843,10 +1843,10 @@
         "date": "2026-07-22",
         "인입": 651,
         "응대": 651,
-        "첫응대_sum": 551243,
-        "첫응대_n": 505,
-        "응답_sum": 494470,
-        "응답_n": 507,
+        "첫응대_sum": 550570,
+        "첫응대_n": 504,
+        "응답_sum": 493925,
+        "응답_n": 506,
         "처리_sum": 2214822,
         "처리_n": 624
       },
@@ -1882,6 +1882,17 @@
         "응답_n": 169,
         "처리_sum": 544459,
         "처리_n": 176
+      },
+      {
+        "date": "2026-07-26",
+        "인입": 12,
+        "응대": 12,
+        "첫응대_sum": 0,
+        "첫응대_n": 0,
+        "응답_sum": 0,
+        "응답_n": 0,
+        "처리_sum": 0,
+        "처리_n": 0
       }
     ],
     "voc_by_date": [
@@ -547901,10 +547912,100 @@
       "count": 1
     },
     {
-      "date": "2026-07-21",
+      "date": "2026-07-18",
+      "kind": "reward",
+      "category": "유프 지원 (1차 제안_신규50%)",
+      "count": 1
+    },
+    {
+      "date": "2026-07-18",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-07-18",
+      "kind": "type",
+      "category": "상담 관련",
+      "count": 2
+    },
+    {
+      "date": "2026-07-20",
+      "kind": "reward",
+      "category": "유프 지원 (2차 제안_중고무상)",
+      "count": 1
+    },
+    {
+      "date": "2026-07-20",
       "kind": "reward",
       "category": "진행중 (직접 기재)",
       "count": 1
+    },
+    {
+      "date": "2026-07-20",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 2
+    },
+    {
+      "date": "2026-07-20",
+      "kind": "type",
+      "category": "배송 / 설치",
+      "count": 1
+    },
+    {
+      "date": "2026-07-20",
+      "kind": "type",
+      "category": "상담 관련",
+      "count": 1
+    },
+    {
+      "date": "2026-07-20",
+      "kind": "type",
+      "category": "이벤트 / 프로모션",
+      "count": 1
+    },
+    {
+      "date": "2026-07-20",
+      "kind": "type",
+      "category": "장비 / 기술",
+      "count": 1
+    },
+    {
+      "date": "2026-07-21",
+      "kind": "reward",
+      "category": "반품 / 교환 유연 처리 (1차_7일 초과 허용+부가비용(가맹비,설치비 등) 수취)",
+      "count": 2
+    },
+    {
+      "date": "2026-07-21",
+      "kind": "reward",
+      "category": "제신고 비용 전액 면제",
+      "count": 1
+    },
+    {
+      "date": "2026-07-21",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 3
+    },
+    {
+      "date": "2026-07-21",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-07-21",
+      "kind": "type",
+      "category": "계약 / 약정",
+      "count": 1
+    },
+    {
+      "date": "2026-07-21",
+      "kind": "type",
+      "category": "반품 / 교환",
+      "count": 3
     },
     {
       "date": "2026-07-21",
@@ -547913,9 +548014,45 @@
       "count": 1
     },
     {
+      "date": "2026-07-21",
+      "kind": "type",
+      "category": "장비 / 기술",
+      "count": 1
+    },
+    {
+      "date": "2026-07-21",
+      "kind": "type",
+      "category": "제신고 / 가맹",
+      "count": 1
+    },
+    {
+      "date": "2026-07-22",
+      "kind": "reward",
+      "category": "금전적 보상 (기프티콘)",
+      "count": 1
+    },
+    {
       "date": "2026-07-22",
       "kind": "reward",
       "category": "진행중 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-07-22",
+      "kind": "reward",
+      "category": "퀵 비용 무상 지원",
+      "count": 1
+    },
+    {
+      "date": "2026-07-22",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 2
+    },
+    {
+      "date": "2026-07-22",
+      "kind": "type",
+      "category": "반품 / 교환",
       "count": 1
     },
     {
@@ -547925,6 +548062,24 @@
       "count": 1
     },
     {
+      "date": "2026-07-22",
+      "kind": "type",
+      "category": "이벤트 / 프로모션",
+      "count": 1
+    },
+    {
+      "date": "2026-07-22",
+      "kind": "type",
+      "category": "전산 누락",
+      "count": 1
+    },
+    {
+      "date": "2026-07-22",
+      "kind": "type",
+      "category": "제신고 / 가맹",
+      "count": 1
+    },
+    {
       "date": "2026-07-23",
       "kind": "reward",
       "category": "진행중 (직접 기재)",
@@ -547932,9 +548087,15 @@
     },
     {
       "date": "2026-07-23",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-07-23",
       "kind": "type",
       "category": "프로그램 / 기능",
-      "count": 1
+      "count": 2
     }
   ]
 }
