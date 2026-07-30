@@ -488,6 +488,18 @@ function listActiveAgents(agentRows, p, filter = {}) {
   return Array.from(names).sort();
 }
 
+// 활성자(그날 수신연결≥THRESHOLD)의 수신연결 합 — 비활성자 콜은 응답률 분자에서 제외
+function sumActiveCalls(agentRows, p, filter = {}) {
+  let sum = 0;
+  for (const r of agentRows) {
+    if (!inRange(r.date, p)) continue;
+    if (filter.squad && r.squad !== filter.squad) continue;
+    const c = r['수신연결'] || 0;
+    if (c >= CALL_ACTIVE_THRESHOLD) sum += c;
+  }
+  return sum;
+}
+
 // 활성 상담사 평균 인원 — 매일 수신연결≥CALL_ACTIVE_THRESHOLD인 상담사 수의 일평균
 // filter.squad 주면 그 스쿼드 한정
 function countActiveAvg(agentRows, p, filter = {}) {
@@ -685,9 +697,11 @@ function renderCall(main) {
       const activeA = countActiveAvg(d.agent_by_date, A, { squad: s });
       const activeB = countActiveAvg(d.agent_by_date, B, { squad: s });
       const namesA = listActiveAgents(d.agent_by_date, A, { squad: s });
-      // 스쿼드 응답률 = (스쿼드 1인당 수신) / (전체 1인당 시도) × 100
-      const rateA = (stdA && activeA) ? (ma.수신연결 / activeA) / stdA * 100 : null;
-      const rateB = (stdB && activeB) ? (mb.수신연결 / activeB) / stdB * 100 : null;
+      // 스쿼드 응답률 = (활성자 1인당 수신) / (전체 1인당 시도) × 100 — 비활성자 콜은 분자 제외
+      const activeCallsA = sumActiveCalls(d.agent_by_date, A, { squad: s });
+      const activeCallsB = sumActiveCalls(d.agent_by_date, B, { squad: s });
+      const rateA = (stdA && activeA) ? (activeCallsA / activeA) / stdA * 100 : null;
+      const rateB = (stdB && activeB) ? (activeCallsB / activeB) / stdB * 100 : null;
       const expanded = state.expandedSquads.has(s);
       rows.push(rowCallGroup(s, ma, mb, rateA, rateB, activeA, activeB, namesA, expanded));
       if (expanded) {
@@ -695,7 +709,7 @@ function renderCall(main) {
       }
     }
     const stdNote = stdA ? ` · 1인당 표준 시도 ≈ ${stdA.toFixed(1)}건` : '';
-    const title = `스쿼드별 콜 — 응답률 = 스쿼드 1인당 수신 ÷ 전체 1인당 시도${stdNote}. 스쿼드 행 클릭 → 상담사별 펼침.`;
+    const title = `스쿼드별 콜 — 응답률 = 활성자 1인당 수신 ÷ 전체 1인당 시도${stdNote}. 스쿼드 행 클릭 → 상담사별 펼침.`;
     const panel = tablePanel(
       title,
       ['스쿼드', '활성 N명', '수신연결', '응답률', 'IB평균통화', 'OB평균통화', '후처리', '발신연결'],
@@ -2070,7 +2084,8 @@ function squadAggCallRows(A, stdA) {
     const m = aggCallAgentRow(d.call.agent_by_date, A, { squad: s });
     if (m.수신연결 === 0) continue;
     const active = countActiveAvg(d.call.agent_by_date, A, { squad: s });
-    const rate = (stdA && active) ? (m.수신연결 / active) / stdA * 100 : null;
+    const activeCalls = sumActiveCalls(d.call.agent_by_date, A, { squad: s });
+    const rate = (stdA && active) ? (activeCalls / active) / stdA * 100 : null;
     out.push({ squad: s, 수신연결: m.수신연결, active, 응답률: rate });
   }
   return out;
