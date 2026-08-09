@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-09T01:27:22.090041+09:00",
+  "generated_at": "2026-08-09T13:14:26.087024+09:00",
   "squads": [
     "CX 1",
     "CX 2",
@@ -622049,6 +622049,102 @@
       "count": 1
     },
     {
+      "date": "2026-07-31",
+      "kind": "reward",
+      "category": "반품 / 교환 유연 처리 (1차_7일 초과 허용+부가비용(가맹비,설치비 등) 전액 면제)",
+      "count": 1
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "reward",
+      "category": "위약금 50% 감면",
+      "count": 1
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "reward",
+      "category": "제신고 비용 전액 면제",
+      "count": 1
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 2
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 2
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "type",
+      "category": "CMS / 환불",
+      "count": 1
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "type",
+      "category": "계약 / 약정",
+      "count": 2
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "type",
+      "category": "반품 / 교환",
+      "count": 1
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "type",
+      "category": "상담 관련",
+      "count": 2
+    },
+    {
+      "date": "2026-07-31",
+      "kind": "type",
+      "category": "제신고 / 가맹",
+      "count": 1
+    },
+    {
+      "date": "2026-08-01",
+      "kind": "reward",
+      "category": "유프 지원 (2차 제안_중고무상)",
+      "count": 1
+    },
+    {
+      "date": "2026-08-01",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-08-01",
+      "kind": "type",
+      "category": "계약 / 약정",
+      "count": 1
+    },
+    {
+      "date": "2026-08-01",
+      "kind": "type",
+      "category": "반품 / 교환",
+      "count": 1
+    },
+    {
+      "date": "2026-08-03",
+      "kind": "reward",
+      "category": "반품 / 교환 유연 처리 (1차_7일 초과 허용+부가비용(가맹비,설치비 등) 수취)",
+      "count": 1
+    },
+    {
+      "date": "2026-08-03",
+      "kind": "reward",
+      "category": "위약금 전액 면제",
+      "count": 1
+    },
+    {
       "date": "2026-08-03",
       "kind": "reward",
       "category": "제신고 비용 전액 면제",
@@ -622058,19 +622154,31 @@
       "date": "2026-08-03",
       "kind": "reward",
       "category": "진행중 (직접 기재)",
-      "count": 2
+      "count": 5
     },
     {
       "date": "2026-08-03",
       "kind": "reward",
       "category": "해당 없음 (직접 기재)",
+      "count": 2
+    },
+    {
+      "date": "2026-08-03",
+      "kind": "type",
+      "category": "CMS / 환불",
       "count": 1
     },
     {
       "date": "2026-08-03",
       "kind": "type",
       "category": "계약 / 약정",
-      "count": 1
+      "count": 3
+    },
+    {
+      "date": "2026-08-03",
+      "kind": "type",
+      "category": "반품 / 교환",
+      "count": 2
     },
     {
       "date": "2026-08-03",
@@ -622087,14 +622195,62 @@
     {
       "date": "2026-08-03",
       "kind": "type",
+      "category": "장비 / 기술",
+      "count": 1
+    },
+    {
+      "date": "2026-08-03",
+      "kind": "type",
+      "category": "제신고 / 가맹",
+      "count": 1
+    },
+    {
+      "date": "2026-08-04",
+      "kind": "reward",
+      "category": "진행중 (직접 기재)",
+      "count": 1
+    },
+    {
+      "date": "2026-08-04",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 2
+    },
+    {
+      "date": "2026-08-04",
+      "kind": "type",
+      "category": "계약 / 약정",
+      "count": 1
+    },
+    {
+      "date": "2026-08-04",
+      "kind": "type",
+      "category": "반품 / 교환",
+      "count": 1
+    },
+    {
+      "date": "2026-08-04",
+      "kind": "type",
       "category": "제신고 / 가맹",
       "count": 1
     },
     {
       "date": "2026-08-05",
       "kind": "reward",
-      "category": "해당 없음 (직접 기재)",
+      "category": "반품 / 교환 유연 처리 (1차_7일 초과 허용+부가비용(가맹비,설치비 등) 전액 면제)",
       "count": 1
+    },
+    {
+      "date": "2026-08-05",
+      "kind": "reward",
+      "category": "해당 없음 (직접 기재)",
+      "count": 2
+    },
+    {
+      "date": "2026-08-05",
+      "kind": "type",
+      "category": "반품 / 교환",
+      "count": 2
     },
     {
       "date": "2026-08-05",
